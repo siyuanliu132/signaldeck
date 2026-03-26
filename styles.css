@@ -258,6 +258,7 @@ textarea {
 .brief-grid,
 .main-grid,
 .execution-grid,
+.story-grid,
 .footer-note {
   opacity: 0;
   animation: rise-in 0.65s ease forwards;
@@ -457,6 +458,14 @@ input[type="range"] {
   margin-top: 24px;
 }
 
+.story-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  margin-top: 24px;
+  animation-delay: 0.26s;
+}
+
 .brief-grid {
   animation-delay: 0.18s;
 }
@@ -470,6 +479,7 @@ input[type="range"] {
 .weights-panel,
 .inspector-panel,
 .execution-panel,
+.story-panel,
 .footer-note {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -481,7 +491,8 @@ input[type="range"] {
 .opportunity-panel,
 .brief-panel,
 .weights-panel,
-.execution-panel {
+.execution-panel,
+.story-panel {
   padding: 22px;
 }
 
@@ -796,6 +807,17 @@ input[type="range"] {
   animation-delay: 0.28s;
 }
 
+.story-panel h2 {
+  margin: 10px 0 0;
+  font-size: 1.28rem;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.story-panel .muted {
+  margin-top: 14px;
+}
+
 .execution-grid-list {
   margin-top: 18px;
   padding-top: 18px;
@@ -849,7 +871,8 @@ input[type="range"] {
   }
 
   .brief-grid,
-  .execution-grid {
+  .execution-grid,
+  .story-grid {
     grid-template-columns: 1fr;
   }
 
