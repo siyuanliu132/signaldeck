@@ -40,6 +40,37 @@
         </nav>
 
         <section class="rail-section">
+          <div class="watchlist-head">
+            <p class="section-label">Account</p>
+            <span class="mono" id="account-badge">Guest</span>
+          </div>
+          <p class="muted small-note" id="account-copy">
+            Create an account to keep watchlists and saved state tied to your profile.
+          </p>
+          <div class="auth-toggle">
+            <button class="auth-tab active" data-auth-mode="login">Sign in</button>
+            <button class="auth-tab" data-auth-mode="register">Register</button>
+          </div>
+          <div class="auth-stack">
+            <label class="api-key-wrap" for="auth-email">
+              <span class="section-label">Email</span>
+              <input id="auth-email" type="email" placeholder="you@example.com" />
+            </label>
+            <label class="api-key-wrap" for="auth-password">
+              <span class="section-label">Password</span>
+              <input id="auth-password" type="password" placeholder="At least 8 characters" />
+            </label>
+            <div class="auth-actions">
+              <button class="primary-button secondary-button" id="auth-submit">Sign in</button>
+              <button class="ghost-button" id="auth-logout" hidden>Sign out</button>
+            </div>
+            <p class="muted small-note" id="auth-message">
+              Guest mode stores watchlists only in this browser.
+            </p>
+          </div>
+        </section>
+
+        <section class="rail-section">
           <p class="section-label">Data connection</p>
           <p class="muted" id="connection-state">
             Connect a free market-data key to replace the prototype feed with live quote snapshots.
@@ -97,6 +128,10 @@
             <div class="status-cluster">
               <span class="status-dot"></span>
               <span id="feed-status-text">Waiting for market data connection</span>
+            </div>
+            <div class="account-pill">
+              <span class="section-label">Account</span>
+              <strong id="topbar-account">Guest mode</strong>
             </div>
             <p class="mono time-stamp" id="last-updated">Updated just now</p>
           </div>

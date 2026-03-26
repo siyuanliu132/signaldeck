@@ -16,6 +16,8 @@ const HISTORY_POINTS = 24;
 const state = {
   surfaceMode: "ai",
   selectedSymbol: "NVDA",
+  authMode: "login",
+  currentUser: null,
   apiKey: loadStoredApiKey(),
   apiConfig: { hasServerKey: false, provider: "Twelve Data" },
   quoteMap: {},
@@ -26,6 +28,7 @@ const state = {
   loadError: "",
   watchlist: loadWatchlist(),
   searchTerm: "",
+  authMessage: "Guest mode stores watchlists only in this browser.",
   profile: createProfile({
     label: "Balanced momentum",
     description: "Balanced momentum profile with trap-risk penalty enabled.",
@@ -52,6 +55,7 @@ const elements = {
   promptButtons: [...document.querySelectorAll(".prompt-pill")],
   tabs: [...document.querySelectorAll(".surface-tab")],
   panels: [...document.querySelectorAll(".mode-panel")],
+  authTabs: [...document.querySelectorAll(".auth-tab")],
   aiQuery: document.getElementById("ai-query"),
   runAi: document.getElementById("run-ai"),
   aiSummary: document.getElementById("ai-summary"),
@@ -70,6 +74,14 @@ const elements = {
   refreshMarket: document.getElementById("refresh-market"),
   watchlistCount: document.getElementById("watchlist-count"),
   watchlistList: document.getElementById("watchlist-list"),
+  accountBadge: document.getElementById("account-badge"),
+  accountCopy: document.getElementById("account-copy"),
+  authEmail: document.getElementById("auth-email"),
+  authPassword: document.getElementById("auth-password"),
+  authSubmit: document.getElementById("auth-submit"),
+  authLogout: document.getElementById("auth-logout"),
+  authMessage: document.getElementById("auth-message"),
+  topbarAccount: document.getElementById("topbar-account"),
   briefHeadline: document.getElementById("brief-headline"),
   briefWindow: document.getElementById("brief-window"),
   briefBody: document.getElementById("brief-body"),
@@ -109,6 +121,7 @@ async function initialize() {
   runAiQuery(elements.aiQuery.value.trim());
   render();
   await fetchConfig();
+  await fetchSession();
   await refreshMarketData();
   setInterval(() => {
     refreshMarketData({ quiet: true });
@@ -130,9 +143,15 @@ function bindEvents() {
     button.addEventListener("click", () => setSurfaceMode(button.dataset.mode));
   });
 
+  elements.authTabs.forEach(button => {
+    button.addEventListener("click", () => setAuthMode(button.dataset.authMode));
+  });
+
   elements.runAi.addEventListener("click", () => runAiQuery(elements.aiQuery.value.trim()));
   elements.applyFilters.addEventListener("click", applyClassicFilters);
   elements.refreshMarket.addEventListener("click", () => refreshMarketData());
+  elements.authSubmit.addEventListener("click", handleAuthSubmit);
+  elements.authLogout.addEventListener("click", handleLogout);
   elements.saveApiKey.addEventListener("click", async () => {
     state.apiKey = elements.apiKeyInput.value.trim();
     saveStoredApiKey(state.apiKey);
@@ -153,6 +172,70 @@ function bindEvents() {
   elements.volumeFilter.addEventListener("input", event => {
     elements.volumeValue.textContent = `${(event.target.value / 10).toFixed(1)}x`;
   });
+}
+
+async function fetchSession() {
+  try {
+    const payload = await fetchJson("/api/auth/me");
+    state.currentUser = payload.user;
+    if (state.currentUser) {
+      await syncWatchlistFromAccount();
+      state.authMessage = "Account active. Watchlist and saved state now follow your profile.";
+    } else {
+      state.watchlist = loadWatchlist();
+    }
+  } catch (error) {
+    state.currentUser = null;
+    state.watchlist = loadWatchlist();
+  } finally {
+    renderAuthState();
+  }
+}
+
+function setAuthMode(mode) {
+  state.authMode = mode;
+  renderAuthState();
+}
+
+async function handleAuthSubmit() {
+  const email = elements.authEmail.value.trim();
+  const password = elements.authPassword.value;
+  const endpoint = state.authMode === "register" ? "/api/auth/register" : "/api/auth/login";
+
+  try {
+    const payload = await fetchJson(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    state.currentUser = payload.user;
+    state.authMessage =
+      state.authMode === "register"
+        ? "Account created. Your watchlist now belongs to your profile."
+        : "Signed in successfully.";
+    elements.authPassword.value = "";
+    await syncWatchlistFromAccount();
+    render();
+  } catch (error) {
+    state.authMessage = error.message;
+    renderAuthState();
+  }
+}
+
+async function handleLogout() {
+  try {
+    await fetchJson("/api/auth/logout", { method: "POST" });
+  } catch (error) {
+    // Ignore logout transport errors and clear client state anyway.
+  }
+
+  state.currentUser = null;
+  state.watchlist = loadWatchlist();
+  state.authMessage = "Signed out. Guest mode stores watchlists only in this browser.";
+  render();
 }
 
 async function fetchConfig() {
@@ -417,8 +500,13 @@ function normalizeHistory(rawData) {
 }
 
 async function fetchJson(url) {
+  const options = arguments[1] || {};
   const response = await fetch(url, {
-    headers: getApiHeaders(),
+    ...options,
+    headers: {
+      ...getApiHeaders(),
+      ...(options.headers || {}),
+    },
   });
   const payload = await response.json();
   if (!response.ok) {
@@ -578,6 +666,7 @@ function render() {
     state.selectedSymbol = ranked[0].symbol;
   }
 
+  renderAuthState();
   renderPulseStrip(ranked);
   renderWatchlist();
   renderBrief(ranked);
@@ -594,7 +683,45 @@ function render() {
     : "Waiting for first data pull";
 }
 
+function renderAuthState() {
+  elements.authTabs.forEach(button => {
+    button.classList.toggle("active", button.dataset.authMode === state.authMode);
+  });
+
+  if (state.currentUser) {
+    elements.accountBadge.textContent = "Account";
+    elements.topbarAccount.textContent = state.currentUser.email;
+    elements.accountCopy.textContent = "This browser is signed in. Watchlists are stored against your account.";
+    elements.authSubmit.hidden = true;
+    elements.authLogout.hidden = false;
+    elements.authEmail.disabled = true;
+    elements.authPassword.disabled = true;
+    elements.authTabs.forEach(button => {
+      button.disabled = true;
+    });
+  } else {
+    elements.accountBadge.textContent = "Guest";
+    elements.topbarAccount.textContent = "Guest mode";
+    elements.accountCopy.textContent =
+      "Create an account to keep watchlists and saved state tied to your profile.";
+    elements.authSubmit.hidden = false;
+    elements.authLogout.hidden = true;
+    elements.authEmail.disabled = false;
+    elements.authPassword.disabled = false;
+    elements.authTabs.forEach(button => {
+      button.disabled = false;
+    });
+    elements.authSubmit.textContent = state.authMode === "register" ? "Create account" : "Sign in";
+  }
+
+  elements.authMessage.textContent = state.authMessage;
+}
+
 function renderConnectionState() {
+  const managedByServer = state.apiConfig.hasServerKey;
+  elements.apiKeyInput.disabled = managedByServer;
+  elements.saveApiKey.disabled = managedByServer;
+
   if (state.isRefreshing) {
     elements.feedStatus.textContent = "Refreshing market quotes";
     elements.connectionState.textContent = "Requesting fresh market data from Twelve Data.";
@@ -616,7 +743,9 @@ function renderConnectionState() {
   }
 
   elements.dataSourceNote.textContent =
-    "Free-tier mode tracks a curated universe and refreshes once per minute to stay within API-credit limits.";
+    managedByServer
+      ? "Server-managed market data is active. Public visitors do not need to supply their own key."
+      : "Free-tier mode tracks a curated universe and refreshes once per minute to stay within API-credit limits.";
 }
 
 function renderPulseStrip(ranked) {
@@ -688,6 +817,15 @@ function renderWatchlist() {
       }
     });
   });
+}
+
+async function syncWatchlistFromAccount() {
+  if (!state.currentUser) {
+    return;
+  }
+
+  const payload = await fetchJson("/api/me/watchlist");
+  state.watchlist = Array.isArray(payload.watchlist) ? payload.watchlist : [];
 }
 
 function renderBrief(ranked) {
@@ -965,8 +1103,28 @@ function toggleWatchlist(symbol) {
     state.watchlist = [...state.watchlist, symbol];
   }
 
-  saveWatchlist(state.watchlist);
-  render();
+  persistWatchlist();
+}
+
+async function persistWatchlist() {
+  try {
+    if (state.currentUser) {
+      const payload = await fetchJson("/api/me/watchlist", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ watchlist: state.watchlist }),
+      });
+      state.watchlist = payload.watchlist;
+    } else {
+      saveWatchlist(state.watchlist);
+    }
+  } catch (error) {
+    state.authMessage = error.message;
+  } finally {
+    render();
+  }
 }
 
 function loadStoredApiKey() {
