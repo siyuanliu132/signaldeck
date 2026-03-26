@@ -993,13 +993,13 @@ function loadWatchlist() {
   try {
     const raw = window.localStorage.getItem("signaldeck-watchlist");
     if (!raw) {
-      return ["NVDA", "MSFT"];
+      return [];
     }
 
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : ["NVDA", "MSFT"];
+    return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
-    return ["NVDA", "MSFT"];
+    return [];
   }
 }
 
