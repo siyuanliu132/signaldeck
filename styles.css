@@ -312,6 +312,8 @@ textarea {
 }
 
 .topbar {
+  position: relative;
+  z-index: 8;
   display: flex;
   justify-content: space-between;
   gap: 20px;
@@ -340,8 +342,8 @@ textarea {
 
 .topbar-actions {
   display: flex;
-  gap: 20px;
-  align-items: center;
+  gap: 16px;
+  align-items: flex-start;
   justify-content: end;
   flex-wrap: wrap;
   margin-left: auto;
@@ -356,6 +358,7 @@ textarea {
   justify-content: flex-end;
   flex-wrap: wrap;
   margin-left: auto;
+  align-self: flex-start;
   min-width: 0;
 }
 
@@ -471,11 +474,20 @@ textarea {
 .status-cluster {
   display: flex;
   gap: 10px;
-  align-items: center;
+  align-items: flex-start;
+  padding-top: 4px;
+}
+
+.status-copy {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
 }
 
 .time-stamp {
-  white-space: nowrap;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 

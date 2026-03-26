@@ -97,9 +97,11 @@
             <button class="primary-button" id="refresh-market">Refresh market</button>
             <div class="status-cluster">
               <span class="status-dot"></span>
-              <span id="feed-status-text">Waiting for market data connection</span>
+              <div class="status-copy">
+                <span id="feed-status-text">Waiting for market data connection</span>
+                <span class="mono time-stamp" id="last-updated">Waiting for first data pull</span>
+              </div>
             </div>
-            <p class="mono time-stamp" id="last-updated">Updated just now</p>
             <div class="account-shell">
               <div class="auth-quick-row">
                 <button class="ghost-button quick-auth-button" id="topbar-signin">Sign in</button>
