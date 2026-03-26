@@ -474,10 +474,41 @@ textarea {
 .query-panel textarea,
 .filters-panel select {
   margin-top: 12px;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(12, 22, 32, 0.92);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 18px;
+}
+
+.filters-panel select,
+.formula-rule select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(237, 244, 255, 0.85) 50%),
+    linear-gradient(135deg, rgba(237, 244, 255, 0.85) 50%, transparent 50%);
+  background-position:
+    calc(100% - 22px) calc(50% - 3px),
+    calc(100% - 16px) calc(50% - 3px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 42px;
+}
+
+.filters-panel select option,
+.formula-rule select option {
+  background: #101925;
+  color: #edf4ff;
+}
+
+.surface-tab,
+.auth-tab {
+  color: #c8d5e6;
+}
+
+.surface-tab:not(.active),
+.auth-tab:not(.active) {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .query-panel textarea {
@@ -524,6 +555,38 @@ input[type="range"] {
 
 .action-row {
   margin-top: 18px;
+}
+
+.preset-panel {
+  margin-bottom: 22px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
+}
+
+.preset-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.preset-chip {
+  padding: 11px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+}
+
+.preset-chip:hover,
+.preset-chip:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(244, 178, 77, 0.38);
+  background: rgba(244, 178, 77, 0.08);
 }
 
 .formula-panel {

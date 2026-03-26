@@ -23,12 +23,17 @@ const FORMULA_FIELDS = [
   { key: "price", label: "Price", type: "number" },
   { key: "changePct", label: "Session change %", type: "number" },
   { key: "gap", label: "Gap %", type: "number" },
+  { key: "drivePct", label: "Drive from open %", type: "number" },
   { key: "momentum", label: "Momentum", type: "number" },
   { key: "risk", label: "Risk", type: "number" },
   { key: "relativeVolume", label: "Relative volume", type: "number" },
   { key: "quality", label: "Trend quality", type: "number" },
   { key: "carry", label: "Carry strength", type: "number" },
   { key: "liquidity", label: "Liquidity", type: "number" },
+  { key: "volatility", label: "Volatility", type: "number" },
+  { key: "closePosition", label: "Close position", type: "number" },
+  { key: "proxyVwap", label: "VWAP proxy", type: "number" },
+  { key: "vwapDrift", label: "Distance from VWAP proxy %", type: "number" },
   { key: "turnover", label: "Approx. turnover", type: "number" },
   { key: "rangePct", label: "Range %", type: "number" },
   { key: "sector", label: "Sector", type: "text" },
@@ -36,6 +41,95 @@ const FORMULA_FIELDS = [
   { key: "session", label: "Session bias", type: "text" },
   { key: "marketCap", label: "Market cap", type: "text" },
 ];
+
+const CLASSIC_PRESETS = {
+  "opening-drive": {
+    label: "Opening drive",
+    filters: {
+      session: "intraday",
+      minMomentum: 74,
+      maxRisk: 46,
+      minRelativeVolume: 1.8,
+      sector: "all",
+      marketCap: "all",
+      minQuality: 72,
+      sortBy: "momentum",
+      minPrice: 8,
+      maxPrice: 80,
+      theme: "all",
+      formulaRules: [
+        { id: createRuleId(), field: "gap", operator: ">=", value: "1.5" },
+        { id: createRuleId(), field: "drivePct", operator: ">=", value: "0.4" },
+        { id: createRuleId(), field: "turnover", operator: ">=", value: "8000000" },
+      ],
+    },
+    summary: "Opening drive loads intraday names with real participation, a constructive gap, and clear drive from the open.",
+  },
+  "vwap-reclaim": {
+    label: "VWAP reclaim",
+    filters: {
+      session: "intraday",
+      minMomentum: 66,
+      maxRisk: 42,
+      minRelativeVolume: 1.4,
+      sector: "all",
+      marketCap: "all",
+      minQuality: 68,
+      sortBy: "quality",
+      minPrice: 10,
+      maxPrice: 150,
+      theme: "all",
+      formulaRules: [
+        { id: createRuleId(), field: "vwapDrift", operator: ">=", value: "0.15" },
+        { id: createRuleId(), field: "closePosition", operator: ">=", value: "0.58" },
+        { id: createRuleId(), field: "relativeVolume", operator: ">=", value: "1.4" },
+      ],
+    },
+    summary: "VWAP reclaim uses a quote-structure VWAP proxy for now, surfacing names that are holding back above value after early pressure.",
+  },
+  "liquidity-sweep": {
+    label: "Liquidity sweep",
+    filters: {
+      session: "all",
+      minMomentum: 70,
+      maxRisk: 52,
+      minRelativeVolume: 2.1,
+      sector: "all",
+      marketCap: "all",
+      minQuality: 66,
+      sortBy: "relativeVolume",
+      minPrice: 5,
+      maxPrice: 200,
+      theme: "all",
+      formulaRules: [
+        { id: createRuleId(), field: "turnover", operator: ">=", value: "12000000" },
+        { id: createRuleId(), field: "rangePct", operator: ">=", value: "2.4" },
+      ],
+    },
+    summary: "Liquidity sweep biases toward faster tape, bigger turnover, and names that are actually attracting capital.",
+  },
+  "clean-carry": {
+    label: "Clean carry",
+    filters: {
+      session: "overnight",
+      minMomentum: 60,
+      maxRisk: 34,
+      minRelativeVolume: 1.2,
+      sector: "all",
+      marketCap: "Mega cap",
+      minQuality: 74,
+      sortBy: "score",
+      minPrice: 20,
+      maxPrice: 300,
+      theme: "all",
+      formulaRules: [
+        { id: createRuleId(), field: "carry", operator: ">=", value: "74" },
+        { id: createRuleId(), field: "vwapDrift", operator: ">=", value: "-0.3" },
+      ],
+    },
+    summary: "Clean carry cuts out fragile tape and prefers higher-quality liquid names that can hold into the next session.",
+  },
+};
 
 const REFRESH_INTERVAL_MS = 1000 * 60 * 4;
 const HISTORY_INTERVAL = "15min";
@@ -100,6 +194,7 @@ const state = {
 
 const elements = {
   promptButtons: [...document.querySelectorAll(".prompt-pill")],
+  presetButtons: [...document.querySelectorAll("[data-preset]")],
   tabs: [...document.querySelectorAll(".surface-tab")],
   panels: [...document.querySelectorAll(".mode-panel")],
   authTabs: [...document.querySelectorAll(".auth-tab")],
@@ -163,6 +258,7 @@ const elements = {
   formulaRuleList: document.getElementById("formula-rule-list"),
   addFormulaRule: document.getElementById("add-formula-rule"),
   formulaSummary: document.getElementById("formula-summary"),
+  presetSummary: document.getElementById("preset-summary"),
   momentumValue: document.getElementById("momentum-value"),
   riskValue: document.getElementById("risk-value"),
   volumeValue: document.getElementById("volume-value"),
@@ -206,6 +302,10 @@ function bindEvents() {
       }
       handleAiRun(button.dataset.prompt);
     });
+  });
+
+  elements.presetButtons.forEach(button => {
+    button.addEventListener("click", () => applyClassicPreset(button.dataset.preset));
   });
 
   elements.tabs.forEach(button => {
@@ -283,6 +383,22 @@ function syncClassicControls() {
   elements.riskValue.textContent = String(state.classicFilters.maxRisk);
   elements.volumeValue.textContent = `${state.classicFilters.minRelativeVolume.toFixed(1)}x`;
   elements.qualityValue.textContent = String(state.classicFilters.minQuality);
+}
+
+function applyClassicPreset(presetKey) {
+  const preset = CLASSIC_PRESETS[presetKey];
+  if (!preset) {
+    return;
+  }
+
+  state.classicFilters = {
+    ...preset.filters,
+    formulaRules: preset.filters.formulaRules.map(rule => ({ ...rule, id: createRuleId() })),
+  };
+  syncClassicControls();
+  elements.presetSummary.textContent = `${preset.label} loaded. ${preset.summary}`;
+  renderFormulaRules();
+  applyClassicFilters();
 }
 
 function createFormulaRule() {
@@ -863,6 +979,9 @@ function buildStock(meta, quote) {
     high && low && previousClose ? ((high - low) / previousClose) * 100 : Math.abs(changePct) * 1.15;
   const closePosition =
     high && low && price ? clamp((price - low) / Math.max(high - low, 0.01), 0, 1) : 0.5;
+  const drivePct = open && price ? ((price - open) / Math.max(open, 0.01)) * 100 : changePct;
+  const proxyVwap = (Number(high || price || 0) + Number(low || price || 0) + Number(price || 0)) / 3;
+  const vwapDrift = proxyVwap ? ((price - proxyVwap) / proxyVwap) * 100 : 0;
   const momentum = clamp(Math.round(62 + changePct * 6 + relativeVolume * 8 + closePosition * 7), 40, 96);
   const risk = clamp(Math.round(56 - changePct * 4 + volatility * 6 - relativeVolume * 5 - closePosition * 7), 14, 78);
   const liquidity = clamp(
@@ -886,8 +1005,13 @@ function buildStock(meta, quote) {
     relativeVolume: round(relativeVolume, 1),
     liquidity,
     gap: round(gap, 2),
+    drivePct: round(drivePct, 2),
     turnover: round(turnover, 0),
     rangePct: round(rangePct, 2),
+    volatility: round(volatility, 2),
+    closePosition: round(closePosition, 2),
+    proxyVwap: round(proxyVwap, 2),
+    vwapDrift: round(vwapDrift, 2),
     carry,
     quality,
     volume: volume ?? 0,
