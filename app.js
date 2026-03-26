@@ -19,7 +19,7 @@ const trackedUniverse = [
   { symbol: "COST", name: "Costco", session: "overnight", trend: "Steady hold", sector: "Consumer", theme: "Defensive compounder", marketCap: "Mega cap" },
 ];
 
-const REFRESH_INTERVAL_MS = 60000;
+const REFRESH_INTERVAL_MS = 1000 * 60 * 4;
 const HISTORY_INTERVAL = "15min";
 const HISTORY_POINTS = 24;
 
@@ -909,8 +909,8 @@ function renderConnectionState() {
 
   elements.dataSourceNote.textContent =
     managedByServer
-      ? "Server-managed market data is active. Public visitors do not need to supply their own key."
-      : "Free-tier mode tracks a curated universe and refreshes once per minute to stay within API-credit limits.";
+      ? "Server-managed market data is active. Public visitors do not need to supply their own key, and server-side caching now reduces duplicate upstream calls."
+      : "Free-tier mode tracks a curated universe and refreshes every four minutes to stay within API-credit limits.";
 }
 
 function renderPulseStrip(ranked) {

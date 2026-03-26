@@ -10,6 +10,12 @@ const apiBase = "https://api.twelvedata.com";
 const authStorePath = path.join(root, "storage", "auth-store.json");
 const sessionCookieName = "signaldeck_sid";
 const sessionMaxAgeSeconds = 60 * 60 * 24 * 30;
+const QUOTE_CACHE_TTL_MS = 1000 * 60 * 4;
+const HISTORY_CACHE_TTL_MS = 1000 * 60 * 20;
+const marketCache = {
+  quotes: new Map(),
+  history: new Map(),
+};
 
 loadEnvFile();
 ensureStorage();
@@ -226,17 +232,29 @@ async function handleQuotes(requestUrl, request, response) {
     return respondJson(response, 400, { error: "Missing Twelve Data API key." });
   }
 
+  const cacheKey = symbols;
+  const cached = readCacheEntry(marketCache.quotes, cacheKey, QUOTE_CACHE_TTL_MS);
+  if (cached) {
+    return respondJson(response, 200, {
+      provider: providerName,
+      fetchedAt: cached.fetchedAt,
+      cached: true,
+      data: cached.data,
+    });
+  }
+
   try {
     const upstream = await fetch(
       `${apiBase}/quote?symbol=${encodeURIComponent(symbols)}&apikey=${encodeURIComponent(apiKey)}`,
     );
     const payload = await upstream.json();
     if (!upstream.ok || payload.status === "error") {
-      return respondJson(response, upstream.status || 502, {
+      return respondJson(response, inferUpstreamStatus(upstream.status, payload.message), {
         error: payload.message || "Unable to fetch quote data.",
       });
     }
 
+    writeCacheEntry(marketCache.quotes, cacheKey, payload);
     return respondJson(response, 200, {
       provider: providerName,
       fetchedAt: new Date().toISOString(),
@@ -260,17 +278,29 @@ async function handleHistory(requestUrl, request, response) {
     return respondJson(response, 400, { error: "Missing Twelve Data API key." });
   }
 
+  const cacheKey = `${symbol}:${interval}:${outputsize}`;
+  const cached = readCacheEntry(marketCache.history, cacheKey, HISTORY_CACHE_TTL_MS);
+  if (cached) {
+    return respondJson(response, 200, {
+      provider: providerName,
+      fetchedAt: cached.fetchedAt,
+      cached: true,
+      data: cached.data,
+    });
+  }
+
   try {
     const upstream = await fetch(
       `${apiBase}/time_series?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&outputsize=${encodeURIComponent(outputsize)}&apikey=${encodeURIComponent(apiKey)}`,
     );
     const payload = await upstream.json();
     if (!upstream.ok || payload.status === "error") {
-      return respondJson(response, upstream.status || 502, {
+      return respondJson(response, inferUpstreamStatus(upstream.status, payload.message), {
         error: payload.message || "Unable to fetch time-series data.",
       });
     }
 
+    writeCacheEntry(marketCache.history, cacheKey, payload);
     return respondJson(response, 200, {
       provider: providerName,
       fetchedAt: new Date().toISOString(),
@@ -283,6 +313,46 @@ async function handleHistory(requestUrl, request, response) {
 
 function getApiKey(request) {
   return process.env.TWELVE_DATA_API_KEY || request.headers["x-api-key"] || "";
+}
+
+function readCacheEntry(store, key, ttlMs) {
+  const entry = store.get(key);
+  if (!entry) {
+    return null;
+  }
+
+  if (Date.now() - entry.cachedAt > ttlMs) {
+    store.delete(key);
+    return null;
+  }
+
+  return entry;
+}
+
+function writeCacheEntry(store, key, data) {
+  store.set(key, {
+    data,
+    fetchedAt: new Date().toISOString(),
+    cachedAt: Date.now(),
+  });
+}
+
+function inferUpstreamStatus(statusCode, message) {
+  if (statusCode && statusCode >= 400) {
+    return statusCode;
+  }
+
+  const normalized = String(message || "").toLowerCase();
+  if (
+    normalized.includes("api credits") ||
+    normalized.includes("rate limit") ||
+    normalized.includes("per minute") ||
+    normalized.includes("quota")
+  ) {
+    return 429;
+  }
+
+  return 502;
 }
 
 function serveStatic(pathname, response) {
