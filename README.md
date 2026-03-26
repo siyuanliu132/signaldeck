@@ -9,12 +9,14 @@ SignalDeck is an AI-guided stock opportunity scanner prototype with a real marke
 - ranks a curated stock universe by conviction and downside control
 - explains why a symbol passed and what to monitor next
 - stores a local watchlist in the browser
+- optionally routes AI Mode through a server-side OpenAI parser before falling back to local heuristic rules
 
 ## Real data
 
 This build is designed to use [Twelve Data](https://twelvedata.com/docs) for free-tier quote snapshots and recent price bars.
 
 - `GET /api/config` reports whether a server-side API key is configured
+- `POST /api/ai/scan-profile` uses OpenAI Responses + Structured Outputs when `OPENAI_API_KEY` is present
 - `GET /api/market/quotes` proxies quote data for the tracked universe
 - `GET /api/market/history` proxies recent time-series bars for the selected symbol
 
@@ -37,6 +39,13 @@ http://localhost:4173
 3. Either:
 - set `TWELVE_DATA_API_KEY` in your environment before starting the server, or
 - paste a free Twelve Data key into the UI for local-only testing
+
+To enable real AI prompt parsing on the server, also set:
+
+```text
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-4.1-mini
+```
 
 You can also copy `.env.example` to `.env` and place your key there.
 

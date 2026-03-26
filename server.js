@@ -7,6 +7,8 @@ const port = process.env.PORT || 4173;
 const root = __dirname;
 const providerName = "Twelve Data";
 const apiBase = "https://api.twelvedata.com";
+const openAiResponsesUrl = "https://api.openai.com/v1/responses";
+const defaultOpenAiModel = "gpt-4.1-mini";
 const authStorePath = path.join(root, "storage", "auth-store.json");
 const sessionCookieName = "signaldeck_sid";
 const sessionMaxAgeSeconds = 60 * 60 * 24 * 30;
@@ -19,6 +21,67 @@ const marketCache = {
 const inFlightMarketRequests = {
   quotes: new Map(),
   history: new Map(),
+};
+const openAiScanProfileSchema = {
+  name: "scan_profile",
+  strict: true,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "label",
+      "description",
+      "title",
+      "sessionBias",
+      "sessionBoost",
+      "scoreWeights",
+      "minQuality",
+      "minRelativeVolume",
+      "priceMin",
+      "priceMax",
+      "window",
+      "holdBias",
+      "riskBias",
+      "executionNote",
+      "monitorFocus",
+      "intentChips",
+      "rationale",
+    ],
+    properties: {
+      label: { type: "string" },
+      description: { type: "string" },
+      title: { type: "string" },
+      sessionBias: { type: "string", enum: ["all", "intraday", "overnight", "swing"] },
+      sessionBoost: { type: "string", enum: ["none", "intraday", "overnight", "swing"] },
+      scoreWeights: {
+        type: "object",
+        additionalProperties: false,
+        required: ["momentum", "safety", "carry"],
+        properties: {
+          momentum: { type: "number" },
+          safety: { type: "number" },
+          carry: { type: "number" },
+        },
+      },
+      minQuality: { type: "number" },
+      minRelativeVolume: { type: "number" },
+      priceMin: { type: "number" },
+      priceMax: { type: "number" },
+      window: { type: "string" },
+      holdBias: { type: "string" },
+      riskBias: { type: "string" },
+      executionNote: { type: "string" },
+      monitorFocus: { type: "string" },
+      intentChips: {
+        type: "array",
+        items: { type: "string" },
+      },
+      rationale: {
+        type: "array",
+        items: { type: "string" },
+      },
+    },
+  },
 };
 
 loadEnvFile();
@@ -44,7 +107,12 @@ http
       return respondJson(response, 200, {
         provider: providerName,
         hasServerKey: Boolean(process.env.TWELVE_DATA_API_KEY),
-        authProviders: ["email-password"],
+        authProviders: ["email-password", "google"],
+        aiParser: {
+          provider: process.env.OPENAI_API_KEY ? "OpenAI Responses" : "Heuristic fallback",
+          hasServerKey: Boolean(process.env.OPENAI_API_KEY),
+          model: getOpenAiModel(),
+        },
       });
     }
 
@@ -77,6 +145,10 @@ http
 
     if (requestUrl.pathname === "/api/me/watchlist" && request.method === "PUT") {
       return handlePutWatchlist(request, response);
+    }
+
+    if (requestUrl.pathname === "/api/ai/scan-profile" && request.method === "POST") {
+      return handleAiScanProfile(request, response);
     }
 
     if (requestUrl.pathname === "/api/market/quotes") {
@@ -333,8 +405,39 @@ async function handleHistory(requestUrl, request, response) {
   }
 }
 
+async function handleAiScanProfile(request, response) {
+  if (!process.env.OPENAI_API_KEY) {
+    return respondJson(response, 503, {
+      error: "OpenAI parser is not configured on the server.",
+    });
+  }
+
+  try {
+    const body = await readJsonBody(request);
+    const query = String(body.query || "").trim();
+    if (!query) {
+      return respondJson(response, 400, { error: "Missing scan prompt." });
+    }
+
+    const profile = await buildAiScanProfile(query);
+    return respondJson(response, 200, {
+      provider: "OpenAI Responses",
+      model: getOpenAiModel(),
+      profile,
+    });
+  } catch (error) {
+    return respondJson(response, error.statusCode || 502, {
+      error: error.message || "Unable to build an AI scan profile.",
+    });
+  }
+}
+
 function getApiKey(request) {
   return process.env.TWELVE_DATA_API_KEY || request.headers["x-api-key"] || "";
+}
+
+function getOpenAiModel() {
+  return process.env.OPENAI_MODEL || defaultOpenAiModel;
 }
 
 function readCacheEntry(store, key, ttlMs) {
@@ -384,6 +487,135 @@ async function fetchMarketPayload(url, fallbackMessage) {
   };
 }
 
+async function buildAiScanProfile(query) {
+  const upstream = await fetch(openAiResponsesUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: getOpenAiModel(),
+      input: [
+        {
+          role: "system",
+          content: [
+            {
+              type: "input_text",
+              text:
+                "You are configuring SignalDeck, an explainable stock scanner. Turn the user's trading goal into a concise scan profile for a product UI. Do not claim certainty or guaranteed returns. Keep labels short and product-ready. Use sessionBias to express the preferred holding horizon, sessionBoost for scoring emphasis, and sensible thresholds for minQuality, minRelativeVolume, and price range. Keep intentChips to 3 or 4 short phrases and rationale to 3 short sentences.",
+            },
+          ],
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: `User request: ${query}`,
+            },
+          ],
+        },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          ...openAiScanProfileSchema,
+        },
+      },
+    }),
+  });
+
+  const raw = await upstream.text();
+  const payload = parseJsonSafely(raw);
+  if (!upstream.ok) {
+    const error = new Error(payload?.error?.message || payload?.message || "OpenAI scan-profile request failed.");
+    error.statusCode = upstream.status || 502;
+    throw error;
+  }
+
+  const content = extractOpenAiText(payload);
+  const parsed = parseJsonSafely(content);
+  if (!parsed) {
+    const error = new Error("OpenAI parser returned an unreadable profile payload.");
+    error.statusCode = 502;
+    throw error;
+  }
+
+  return normalizeAiProfilePayload(parsed);
+}
+
+function extractOpenAiText(payload) {
+  if (!payload || typeof payload !== "object") {
+    return "";
+  }
+
+  if (typeof payload.output_text === "string" && payload.output_text.trim()) {
+    return payload.output_text;
+  }
+
+  if (!Array.isArray(payload.output)) {
+    return "";
+  }
+
+  for (const item of payload.output) {
+    const content = Array.isArray(item?.content) ? item.content : [];
+    for (const part of content) {
+      if (typeof part?.text === "string" && part.text.trim()) {
+        return part.text;
+      }
+      if (part?.json && typeof part.json === "object") {
+        return JSON.stringify(part.json);
+      }
+    }
+  }
+
+  return "";
+}
+
+function normalizeAiProfilePayload(profile) {
+  const sessionBias = pickAllowedValue(profile?.sessionBias, ["all", "intraday", "overnight", "swing"], "all");
+  const sessionBoost = pickAllowedValue(
+    profile?.sessionBoost,
+    ["none", "intraday", "overnight", "swing"],
+    sessionBias === "all" ? "none" : sessionBias,
+  );
+
+  return {
+    label: cleanServerText(profile?.label, "AI scan"),
+    description: cleanServerText(profile?.description, "Structured scan profile generated from the user prompt."),
+    title: cleanServerText(profile?.title, "AI-ranked setups"),
+    sessionBias,
+    sessionBoost,
+    scoreWeights: {
+      momentum: clampNumber(Number(profile?.scoreWeights?.momentum) || 1, 0.55, 1.65),
+      safety: clampNumber(Number(profile?.scoreWeights?.safety) || 1, 0.55, 1.65),
+      carry: clampNumber(Number(profile?.scoreWeights?.carry) || 0.75, 0.4, 1.5),
+    },
+    minQuality: clampNumber(Number(profile?.minQuality) || 66, 50, 92),
+    minRelativeVolume: clampNumber(Number(profile?.minRelativeVolume) || 1.25, 0.5, 4),
+    priceMin: clampNumber(Number(profile?.priceMin) || 0, 0, 1000),
+    priceMax: clampNumber(Number(profile?.priceMax) || 9999, 1, 2000),
+    window: cleanServerText(profile?.window, "Flexible"),
+    holdBias: cleanServerText(profile?.holdBias, "Adaptive"),
+    riskBias: cleanServerText(profile?.riskBias, "Balanced"),
+    executionNote: cleanServerText(
+      profile?.executionNote,
+      "Use the generated profile as a market-scan guide, not a certainty claim.",
+    ),
+    monitorFocus: cleanServerText(
+      profile?.monitorFocus,
+      "Watch participation, structure, and whether the tape holds after the initial move.",
+    ),
+    intentChips: cleanServerList(profile?.intentChips, 4, ["AI parsed", "Structured intent"]),
+    rationale: cleanServerList(profile?.rationale, 3, [
+      "The parser reads time horizon, risk posture, and participation cues from the prompt.",
+      "SignalDeck translates that into a structured scan profile instead of freeform text.",
+      "The final board remains explainable because the local ranking engine still drives the output.",
+    ]),
+  };
+}
+
 function inferUpstreamStatus(statusCode, message) {
   if (statusCode && statusCode >= 400) {
     return statusCode;
@@ -400,6 +632,44 @@ function inferUpstreamStatus(statusCode, message) {
   }
 
   return 502;
+}
+
+function parseJsonSafely(value) {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return null;
+  }
+}
+
+function cleanServerText(value, fallback) {
+  const text = String(value || "").trim();
+  return text || fallback;
+}
+
+function cleanServerList(values, limit, fallback) {
+  if (!Array.isArray(values)) {
+    return fallback;
+  }
+
+  const cleaned = values
+    .map(item => String(item || "").trim())
+    .filter(Boolean)
+    .slice(0, limit);
+
+  return cleaned.length ? cleaned : fallback;
+}
+
+function pickAllowedValue(value, allowed, fallback) {
+  return allowed.includes(value) ? value : fallback;
+}
+
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function serveStatic(pathname, response) {

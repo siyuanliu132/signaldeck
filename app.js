@@ -146,8 +146,22 @@ const state = {
   currentUser: null,
   accountMenuOpen: false,
   aiWorking: false,
+  aiRuntime: {
+    source: "heuristic",
+    provider: "Heuristic parser",
+    model: "",
+    note: "Heuristic parser active until a server-side OpenAI key is configured.",
+  },
   apiKey: loadStoredApiKey(),
-  apiConfig: { hasServerKey: false, provider: "Twelve Data" },
+  apiConfig: {
+    hasServerKey: false,
+    provider: "Twelve Data",
+    aiParser: {
+      provider: "Heuristic fallback",
+      hasServerKey: false,
+      model: "",
+    },
+  },
   marketTransport: "idle",
   quoteMap: {},
   historyMap: {},
@@ -208,6 +222,7 @@ const elements = {
   aiQuery: document.getElementById("ai-query"),
   runAi: document.getElementById("run-ai"),
   aiSummary: document.getElementById("ai-summary"),
+  aiProviderNote: document.getElementById("ai-provider-note"),
   intentChips: document.getElementById("intent-chips"),
   aiRationale: document.getElementById("ai-rationale"),
   surfaceCaption: document.getElementById("surface-caption"),
@@ -404,7 +419,29 @@ async function handleAiRun(nextQuery) {
   state.aiWorking = true;
   renderSurfaceState();
   await wait(420);
-  runAiQuery(query);
+  let usedStructuredParser = false;
+  let fallbackReason = "";
+
+  if (state.apiConfig.aiParser?.hasServerKey) {
+    try {
+      const payload = await fetchJson("/api/ai/scan-profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query }),
+      });
+      applyStructuredAiProfile(payload.profile, payload);
+      usedStructuredParser = true;
+    } catch (error) {
+      fallbackReason = error.message;
+    }
+  }
+
+  if (!usedStructuredParser) {
+    runAiQuery(query, { fallbackReason });
+  }
+
   state.aiWorking = false;
   render();
 }
@@ -714,11 +751,32 @@ async function fetchConfig() {
       throw new Error("Unable to load API config.");
     }
     state.apiConfig = await response.json();
+    syncAiRuntimeFromConfig();
   } catch (error) {
     state.loadError = error.message;
   } finally {
     renderConnectionState();
   }
+}
+
+function syncAiRuntimeFromConfig() {
+  const parser = state.apiConfig.aiParser || {};
+  if (parser.hasServerKey) {
+    state.aiRuntime = {
+      source: "standby",
+      provider: parser.provider || "OpenAI Responses",
+      model: parser.model || "",
+      note: `${parser.provider || "OpenAI Responses"} ready${parser.model ? ` (${parser.model})` : ""}. If the live parse fails, SignalDeck falls back to local scan rules.`,
+    };
+    return;
+  }
+
+  state.aiRuntime = {
+    source: "heuristic",
+    provider: "Heuristic parser",
+    model: "",
+    note: "Heuristic parser active until a server-side OpenAI key is configured.",
+  };
 }
 
 function setSurfaceMode(mode) {
@@ -821,7 +879,7 @@ function applyClassicFilters() {
   render();
 }
 
-function runAiQuery(query) {
+function runAiQuery(query, options = {}) {
   const normalized = query.toLowerCase();
   const wantsLowRisk =
     /low risk|safer|controlled downside|avoid|stable|blue[- ]?chip|defensive/.test(normalized);
@@ -941,8 +999,79 @@ function runAiQuery(query) {
     },
   });
 
+  state.aiRuntime = {
+    source: "heuristic",
+    provider: "Heuristic parser",
+    model: "",
+    note: options.fallbackReason
+      ? `OpenAI parser was unavailable, so SignalDeck fell back to heuristic parsing. ${options.fallbackReason}`
+      : state.apiConfig.aiParser?.hasServerKey
+        ? "Local heuristic fallback is active for this scan."
+        : "Heuristic parser active until a server-side OpenAI key is configured.",
+  };
   elements.aiSummary.textContent = `${label} profile active. ${description}`;
   render();
+}
+
+function applyStructuredAiProfile(profile, payload = {}) {
+  const sessionBias = pickEnum(profile?.sessionBias, ["all", "intraday", "overnight", "swing"], "all");
+  const sessionBoost = pickEnum(profile?.sessionBoost, ["none", "intraday", "overnight", "swing"], "none");
+  const minQuality = clamp(Number(profile?.minQuality) || 66, 50, 92);
+  const minRelativeVolume = clamp(Number(profile?.minRelativeVolume) || 1.25, 0.5, 4);
+  const priceMin = clamp(Number(profile?.priceMin) || 0, 0, 1000);
+  const rawPriceMax = Number(profile?.priceMax);
+  const priceMax = Number.isFinite(rawPriceMax) ? clamp(rawPriceMax, priceMin + 1, 2000) : 9999;
+  const scoreWeights = profile?.scoreWeights || {};
+  const intentChips = cleanAiList(profile?.intentChips, 4, ["AI parsed", "Structured intent"]);
+  const rationale = cleanAiList(profile?.rationale, 3, [
+    "A real model parsed the prompt into horizon, risk posture, and participation requirements.",
+    "SignalDeck then applies those instructions through its local ranking engine.",
+    "This keeps the workflow explainable while still letting the AI steer the scan.",
+  ]);
+
+  state.profile = createProfile({
+    label: cleanAiText(profile?.label, "AI scan"),
+    description: cleanAiText(profile?.description, "Structured scan profile generated from your prompt."),
+    title: cleanAiText(profile?.title, "AI-ranked setups"),
+    filter: stock => {
+      const matchesSession = sessionBias === "all" || stock.session === sessionBias;
+      return (
+        matchesSession &&
+        stock.quality >= minQuality &&
+        stock.relativeVolume >= minRelativeVolume &&
+        stock.price >= priceMin &&
+        stock.price <= priceMax
+      );
+    },
+    scoreConfig: {
+      momentum: clamp(Number(scoreWeights.momentum) || 1, 0.55, 1.65),
+      safety: clamp(Number(scoreWeights.safety) || 1, 0.55, 1.65),
+      carry: clamp(Number(scoreWeights.carry) || 0.75, 0.4, 1.5),
+      sessionBoost: sessionBoost === "none" ? null : sessionBoost,
+    },
+    meta: {
+      window: cleanAiText(profile?.window, sessionBias === "all" ? "Flexible" : "Open to midday"),
+      holdBias: cleanAiText(profile?.holdBias, "Adaptive"),
+      riskBias: cleanAiText(profile?.riskBias, "Balanced"),
+      executionNote: cleanAiText(
+        profile?.executionNote,
+        "The AI parser set the posture, and SignalDeck is ranking names that best fit that posture.",
+      ),
+      monitorFocus: cleanAiText(
+        profile?.monitorFocus,
+        `Watch ${minQuality}+ quality, ${minRelativeVolume.toFixed(1)}x relative volume, and ${sessionBias === "all" ? "cross-session strength" : `${sessionBias} structure`}.`,
+      ),
+      intentChips,
+      rationale,
+    },
+  });
+
+  state.aiRuntime = {
+    source: "openai",
+    provider: payload.provider || state.apiConfig.aiParser?.provider || "OpenAI Responses",
+    model: payload.model || state.apiConfig.aiParser?.model || "",
+    note: `${payload.provider || "OpenAI Responses"} structured parsing drove this profile${payload.model ? ` using ${payload.model}` : ""}. SignalDeck still applies its own transparent ranking engine on top.`,
+  };
 }
 
 async function refreshMarketData(options = {}) {
@@ -1291,6 +1420,9 @@ function renderSurfaceState() {
   elements.aiSummary.textContent = state.aiWorking
     ? "Breaking your prompt into horizon, risk posture, and participation signals."
     : `${state.profile.label} profile active. ${state.profile.description}`;
+  elements.aiProviderNote.textContent = state.aiWorking
+    ? "Trying the server-side OpenAI parser when available, then falling back safely if needed."
+    : state.aiRuntime.note;
 }
 
 function renderFormulaRules() {
@@ -1944,6 +2076,28 @@ function numberOrNull(value) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function pickEnum(value, allowed, fallback) {
+  return allowed.includes(value) ? value : fallback;
+}
+
+function cleanAiText(value, fallback) {
+  const text = String(value || "").trim();
+  return text || fallback;
+}
+
+function cleanAiList(values, limit, fallback) {
+  if (!Array.isArray(values)) {
+    return fallback;
+  }
+
+  const cleaned = values
+    .map(item => String(item || "").trim())
+    .filter(Boolean)
+    .slice(0, limit);
+
+  return cleaned.length ? cleaned : fallback;
 }
 
 function round(value, decimals) {

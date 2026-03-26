@@ -728,6 +728,22 @@ input[type="range"] {
 
 .action-row {
   margin-top: 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.action-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#ai-summary,
+#ai-provider-note {
+  margin: 0;
 }
 
 .preset-panel {
