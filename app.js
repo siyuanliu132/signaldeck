@@ -1,3 +1,13 @@
+const SUPABASE_URL = "https://lebhgypjdikxhjbgoklb.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_soubqDA83uJO_-lwCy0JmQ_3ghqNddv";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
+
 const trackedUniverse = [
   { symbol: "NVDA", name: "NVIDIA", session: "intraday", trend: "Intraday continuation", sector: "Semiconductors", theme: "AI infrastructure", marketCap: "Mega cap" },
   { symbol: "MSFT", name: "Microsoft", session: "swing", trend: "Blue-chip swing", sector: "Software", theme: "Platform leader", marketCap: "Mega cap" },
@@ -79,6 +89,7 @@ const elements = {
   authEmail: document.getElementById("auth-email"),
   authPassword: document.getElementById("auth-password"),
   authSubmit: document.getElementById("auth-submit"),
+  authGoogle: document.getElementById("auth-google"),
   authLogout: document.getElementById("auth-logout"),
   authMessage: document.getElementById("auth-message"),
   topbarAccount: document.getElementById("topbar-account"),
@@ -114,6 +125,7 @@ const elements = {
 };
 
 bindEvents();
+bindSupabaseAuthListener();
 initialize();
 
 async function initialize() {
@@ -151,6 +163,7 @@ function bindEvents() {
   elements.applyFilters.addEventListener("click", applyClassicFilters);
   elements.refreshMarket.addEventListener("click", () => refreshMarketData());
   elements.authSubmit.addEventListener("click", handleAuthSubmit);
+  elements.authGoogle.addEventListener("click", handleGoogleAuth);
   elements.authLogout.addEventListener("click", handleLogout);
   elements.saveApiKey.addEventListener("click", async () => {
     state.apiKey = elements.apiKeyInput.value.trim();
@@ -176,11 +189,17 @@ function bindEvents() {
 
 async function fetchSession() {
   try {
-    const payload = await fetchJson("/api/auth/me");
-    state.currentUser = payload.user;
+    const { data, error } = await supabaseClient.auth.getUser();
+    if (error) {
+      throw error;
+    }
+
+    state.currentUser = data.user || null;
     if (state.currentUser) {
       await syncWatchlistFromAccount();
-      state.authMessage = "Account active. Watchlist and saved state now follow your profile.";
+      state.authMessage = state.currentUser.email_confirmed_at
+        ? "Account active. Watchlist and saved state now follow your profile."
+        : "Check your inbox to confirm this email address.";
     } else {
       state.watchlist = loadWatchlist();
     }
@@ -197,27 +216,56 @@ function setAuthMode(mode) {
   renderAuthState();
 }
 
+function bindSupabaseAuthListener() {
+  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+    state.currentUser = session?.user || null;
+    if (state.currentUser) {
+      await syncWatchlistFromAccount();
+    } else {
+      state.watchlist = loadWatchlist();
+    }
+    render();
+  });
+}
+
 async function handleAuthSubmit() {
   const email = elements.authEmail.value.trim();
   const password = elements.authPassword.value;
-  const endpoint = state.authMode === "register" ? "/api/auth/register" : "/api/auth/login";
 
   try {
-    const payload = await fetchJson(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
-    });
+    if (state.authMode === "register") {
+      const { data, error } = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+        },
+      });
+      if (error) {
+        throw error;
+      }
 
-    state.currentUser = payload.user;
-    state.authMessage =
-      state.authMode === "register"
-        ? "Account created. Your watchlist now belongs to your profile."
-        : "Signed in successfully.";
+      state.currentUser = data.user || null;
+      state.authMessage = data.session
+        ? "Account created and signed in."
+        : "Check your email and click the confirmation link to activate your account.";
+    } else {
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) {
+        throw error;
+      }
+
+      state.currentUser = data.user || null;
+      state.authMessage = "Signed in successfully.";
+    }
+
     elements.authPassword.value = "";
-    await syncWatchlistFromAccount();
+    if (state.currentUser) {
+      await syncWatchlistFromAccount();
+    }
     render();
   } catch (error) {
     state.authMessage = error.message;
@@ -225,9 +273,26 @@ async function handleAuthSubmit() {
   }
 }
 
+async function handleGoogleAuth() {
+  state.authMessage = "Redirecting to Google sign-in...";
+  renderAuthState();
+
+  const { error } = await supabaseClient.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${window.location.origin}/`,
+    },
+  });
+
+  if (error) {
+    state.authMessage = error.message;
+    renderAuthState();
+  }
+}
+
 async function handleLogout() {
   try {
-    await fetchJson("/api/auth/logout", { method: "POST" });
+    await supabaseClient.auth.signOut();
   } catch (error) {
     // Ignore logout transport errors and clear client state anyway.
   }
@@ -693,6 +758,7 @@ function renderAuthState() {
     elements.topbarAccount.textContent = state.currentUser.email;
     elements.accountCopy.textContent = "This browser is signed in. Watchlists are stored against your account.";
     elements.authSubmit.hidden = true;
+    elements.authGoogle.hidden = true;
     elements.authLogout.hidden = false;
     elements.authEmail.disabled = true;
     elements.authPassword.disabled = true;
@@ -705,6 +771,7 @@ function renderAuthState() {
     elements.accountCopy.textContent =
       "Create an account to keep watchlists and saved state tied to your profile.";
     elements.authSubmit.hidden = false;
+    elements.authGoogle.hidden = false;
     elements.authLogout.hidden = true;
     elements.authEmail.disabled = false;
     elements.authPassword.disabled = false;
@@ -824,8 +891,8 @@ async function syncWatchlistFromAccount() {
     return;
   }
 
-  const payload = await fetchJson("/api/me/watchlist");
-  state.watchlist = Array.isArray(payload.watchlist) ? payload.watchlist : [];
+  const watchlist = state.currentUser.user_metadata?.watchlist;
+  state.watchlist = Array.isArray(watchlist) ? watchlist : [];
 }
 
 function renderBrief(ranked) {
@@ -1109,14 +1176,18 @@ function toggleWatchlist(symbol) {
 async function persistWatchlist() {
   try {
     if (state.currentUser) {
-      const payload = await fetchJson("/api/me/watchlist", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
+      const { data, error } = await supabaseClient.auth.updateUser({
+        data: {
+          ...(state.currentUser.user_metadata || {}),
+          watchlist: state.watchlist,
         },
-        body: JSON.stringify({ watchlist: state.watchlist }),
       });
-      state.watchlist = payload.watchlist;
+      if (error) {
+        throw error;
+      }
+
+      state.currentUser = data.user;
+      await syncWatchlistFromAccount();
     } else {
       saveWatchlist(state.watchlist);
     }
