@@ -497,8 +497,18 @@ textarea {
   display: block;
 }
 
-.filters-grid select {
+.filters-grid select,
+.filters-grid input[type="number"] {
   padding: 14px 16px;
+}
+
+.filters-grid input[type="number"] {
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
 }
 
 input[type="range"] {
@@ -514,6 +524,82 @@ input[type="range"] {
 
 .action-row {
   margin-top: 18px;
+}
+
+.formula-panel {
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
+}
+
+.formula-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+}
+
+.formula-head h3 {
+  margin: 8px 0 0;
+  font-size: 1.05rem;
+  letter-spacing: -0.03em;
+}
+
+.compact-button {
+  width: auto;
+  margin-top: 0;
+  padding-inline: 14px;
+}
+
+.formula-rule-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.formula-rule {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(120px, 0.8fr) minmax(0, 0.9fr) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: rgba(6, 14, 22, 0.58);
+}
+
+.formula-rule label {
+  display: block;
+}
+
+.formula-rule select,
+.formula-rule input {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+}
+
+.formula-remove {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 180ms ease, color 180ms ease, background-color 180ms ease;
+}
+
+.formula-remove:hover {
+  border-color: rgba(255, 111, 97, 0.36);
+  background: rgba(255, 111, 97, 0.08);
+  color: #ffd0ca;
 }
 
 .ai-digest {
@@ -1204,6 +1290,10 @@ input[type="range"] {
   .ai-digest {
     grid-template-columns: 1fr 1fr;
   }
+
+  .formula-rule {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1235,6 +1325,15 @@ input[type="range"] {
   }
 
   .spotlight-visual {
+    grid-template-columns: 1fr;
+  }
+
+  .formula-head {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .formula-rule {
     grid-template-columns: 1fr;
   }
 }

@@ -19,6 +19,24 @@ const trackedUniverse = [
   { symbol: "COST", name: "Costco", session: "overnight", trend: "Steady hold", sector: "Consumer", theme: "Defensive compounder", marketCap: "Mega cap" },
 ];
 
+const FORMULA_FIELDS = [
+  { key: "price", label: "Price", type: "number" },
+  { key: "changePct", label: "Session change %", type: "number" },
+  { key: "gap", label: "Gap %", type: "number" },
+  { key: "momentum", label: "Momentum", type: "number" },
+  { key: "risk", label: "Risk", type: "number" },
+  { key: "relativeVolume", label: "Relative volume", type: "number" },
+  { key: "quality", label: "Trend quality", type: "number" },
+  { key: "carry", label: "Carry strength", type: "number" },
+  { key: "liquidity", label: "Liquidity", type: "number" },
+  { key: "turnover", label: "Approx. turnover", type: "number" },
+  { key: "rangePct", label: "Range %", type: "number" },
+  { key: "sector", label: "Sector", type: "text" },
+  { key: "theme", label: "Theme", type: "text" },
+  { key: "session", label: "Session bias", type: "text" },
+  { key: "marketCap", label: "Market cap", type: "text" },
+];
+
 const REFRESH_INTERVAL_MS = 1000 * 60 * 4;
 const HISTORY_INTERVAL = "15min";
 const HISTORY_POINTS = 24;
@@ -70,6 +88,13 @@ const state = {
     marketCap: "all",
     minQuality: 70,
     sortBy: "score",
+    minPrice: 0,
+    maxPrice: 9999,
+    theme: "all",
+    formulaRules: [
+      { id: createRuleId(), field: "relativeVolume", operator: ">=", value: "1.5" },
+      { id: createRuleId(), field: "quality", operator: ">=", value: "70" },
+    ],
   },
 };
 
@@ -132,6 +157,12 @@ const elements = {
   marketCapFilter: document.getElementById("market-cap-filter"),
   qualityFilter: document.getElementById("quality-filter"),
   sortFilter: document.getElementById("sort-filter"),
+  priceMinFilter: document.getElementById("price-min-filter"),
+  priceMaxFilter: document.getElementById("price-max-filter"),
+  themeFilter: document.getElementById("theme-filter"),
+  formulaRuleList: document.getElementById("formula-rule-list"),
+  addFormulaRule: document.getElementById("add-formula-rule"),
+  formulaSummary: document.getElementById("formula-summary"),
   momentumValue: document.getElementById("momentum-value"),
   riskValue: document.getElementById("risk-value"),
   volumeValue: document.getElementById("volume-value"),
@@ -155,6 +186,7 @@ initialize();
 
 async function initialize() {
   elements.apiKeyInput.value = state.apiKey;
+  syncClassicControls();
   runAiQuery(elements.aiQuery.value.trim());
   render();
   await fetchConfig();
@@ -213,6 +245,10 @@ function bindEvents() {
   elements.qualityFilter.addEventListener("input", event => {
     elements.qualityValue.textContent = event.target.value;
   });
+  elements.addFormulaRule.addEventListener("click", () => {
+    state.classicFilters.formulaRules.push(createFormulaRule());
+    renderFormulaRules();
+  });
 }
 
 async function handleAiRun(nextQuery) {
@@ -229,6 +265,116 @@ async function handleAiRun(nextQuery) {
   runAiQuery(query);
   state.aiWorking = false;
   render();
+}
+
+function syncClassicControls() {
+  elements.sessionFilter.value = state.classicFilters.session;
+  elements.momentumFilter.value = String(state.classicFilters.minMomentum);
+  elements.riskFilter.value = String(state.classicFilters.maxRisk);
+  elements.volumeFilter.value = String(Math.round(state.classicFilters.minRelativeVolume * 10));
+  elements.sectorFilter.value = state.classicFilters.sector;
+  elements.marketCapFilter.value = state.classicFilters.marketCap;
+  elements.qualityFilter.value = String(state.classicFilters.minQuality);
+  elements.sortFilter.value = state.classicFilters.sortBy;
+  elements.priceMinFilter.value = String(state.classicFilters.minPrice);
+  elements.priceMaxFilter.value = String(state.classicFilters.maxPrice);
+  elements.themeFilter.value = state.classicFilters.theme;
+  elements.momentumValue.textContent = String(state.classicFilters.minMomentum);
+  elements.riskValue.textContent = String(state.classicFilters.maxRisk);
+  elements.volumeValue.textContent = `${state.classicFilters.minRelativeVolume.toFixed(1)}x`;
+  elements.qualityValue.textContent = String(state.classicFilters.minQuality);
+}
+
+function createFormulaRule() {
+  return { id: createRuleId(), field: "relativeVolume", operator: ">=", value: "1.5" };
+}
+
+function createRuleId() {
+  return `rule-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function sanitizeFormulaRules(rules) {
+  return (Array.isArray(rules) ? rules : [])
+    .map(rule => ({
+      id: rule.id || createRuleId(),
+      field: getFormulaFieldMeta(rule.field)?.key || "relativeVolume",
+      operator: rule.operator || ">=",
+      value: String(rule.value ?? ""),
+    }));
+}
+
+function getFormulaFieldMeta(fieldKey) {
+  return FORMULA_FIELDS.find(field => field.key === fieldKey) || null;
+}
+
+function getOperatorsForRule(rule) {
+  return getFormulaFieldMeta(rule.field)?.type === "text"
+    ? ["is", "contains", "is not"]
+    : [">=", ">", "<=", "<", "=", "!="];
+}
+
+function updateFormulaRule(ruleId, prop, value) {
+  const rule = state.classicFilters.formulaRules.find(entry => entry.id === ruleId);
+  if (!rule) {
+    return;
+  }
+
+  rule[prop] = value;
+  if (prop === "field") {
+    rule.operator = getOperatorsForRule(rule)[0];
+    rule.value = getFormulaFieldMeta(value)?.type === "text" ? "" : "0";
+  }
+  renderFormulaRules();
+}
+
+function matchesFormulaRules(stock, rules) {
+  return sanitizeFormulaRules(rules)
+    .filter(rule => String(rule.value).trim() !== "")
+    .every(rule => evaluateFormulaRule(stock, rule));
+}
+
+function evaluateFormulaRule(stock, rule) {
+  const meta = getFormulaFieldMeta(rule.field);
+  if (!meta) {
+    return true;
+  }
+
+  const stockValue = stock[rule.field];
+  if (meta.type === "text") {
+    const left = String(stockValue || "").toLowerCase();
+    const right = String(rule.value || "").toLowerCase();
+    if (!right) {
+      return true;
+    }
+    if (rule.operator === "contains") {
+      return left.includes(right);
+    }
+    if (rule.operator === "is not") {
+      return left !== right;
+    }
+    return left === right;
+  }
+
+  const left = Number(stockValue);
+  const right = Number(rule.value);
+  if (!Number.isFinite(left) || !Number.isFinite(right)) {
+    return true;
+  }
+
+  switch (rule.operator) {
+    case ">=":
+      return left >= right;
+    case ">":
+      return left > right;
+    case "<=":
+      return left <= right;
+    case "<":
+      return left < right;
+    case "!=":
+      return left !== right;
+    default:
+      return left === right;
+  }
 }
 
 async function fetchSession() {
@@ -383,6 +529,10 @@ function applyClassicFilters() {
     marketCap: elements.marketCapFilter.value,
     minQuality: Number(elements.qualityFilter.value),
     sortBy: elements.sortFilter.value,
+    minPrice: Number(elements.priceMinFilter.value) || 0,
+    maxPrice: Number(elements.priceMaxFilter.value) || 9999,
+    theme: elements.themeFilter.value,
+    formulaRules: sanitizeFormulaRules(state.classicFilters.formulaRules),
   };
 
   state.profile = createProfile({
@@ -396,14 +546,20 @@ function applyClassicFilters() {
         state.classicFilters.sector === "all" || stock.sector === state.classicFilters.sector;
       const matchesMarketCap =
         state.classicFilters.marketCap === "all" || stock.marketCap === state.classicFilters.marketCap;
+      const matchesTheme =
+        state.classicFilters.theme === "all" || stock.theme === state.classicFilters.theme;
       return (
         matchesSession &&
         matchesSector &&
         matchesMarketCap &&
+        matchesTheme &&
         stock.momentum >= state.classicFilters.minMomentum &&
         stock.risk <= state.classicFilters.maxRisk &&
         stock.relativeVolume >= state.classicFilters.minRelativeVolume &&
-        stock.quality >= state.classicFilters.minQuality
+        stock.quality >= state.classicFilters.minQuality &&
+        stock.price >= state.classicFilters.minPrice &&
+        stock.price <= state.classicFilters.maxPrice &&
+        matchesFormulaRules(stock, state.classicFilters.formulaRules)
       );
     },
     scoreConfig: {
@@ -441,8 +597,8 @@ function applyClassicFilters() {
       ],
       rationale: [
         `Momentum must stay above ${state.classicFilters.minMomentum}, while risk must stay at or below ${state.classicFilters.maxRisk}.`,
-        `${state.classicFilters.minRelativeVolume.toFixed(1)}x relative volume and ${state.classicFilters.minQuality}+ quality are now required to surface.`,
-        `${state.classicFilters.sector === "all" ? "No sector override is active." : `${state.classicFilters.sector} is the only sector allowed.`} ${state.classicFilters.marketCap === "all" ? "All cap tiers can appear." : `${state.classicFilters.marketCap} names only.`}`,
+        `${state.classicFilters.minRelativeVolume.toFixed(1)}x relative volume, ${state.classicFilters.minQuality}+ quality, and a ${state.classicFilters.minPrice}-${state.classicFilters.maxPrice} price window are now active.`,
+        `${state.classicFilters.sector === "all" ? "No sector override is active." : `${state.classicFilters.sector} is the only sector allowed.`} ${state.classicFilters.marketCap === "all" ? "All cap tiers can appear." : `${state.classicFilters.marketCap} names only.`} ${state.classicFilters.theme === "all" ? "All themes are allowed." : `${state.classicFilters.theme} is the active theme filter.`}`,
       ],
     },
   });
@@ -717,6 +873,9 @@ function buildStock(meta, quote) {
   const carry = clamp(Math.round(52 + changePct * 3 + closePosition * 18 + relativeVolume * 7), 42, 94);
   const quality = clamp(Math.round(48 + closePosition * 28 + relativeVolume * 7 - volatility * 1.6), 40, 94);
   const gap = open && previousClose ? ((open - previousClose) / previousClose) * 100 : 0;
+  const turnover = (volume ?? 0) * (price ?? 0);
+  const rangePct =
+    open && high && low ? ((high - low) / Math.max(open, 0.01)) * 100 : Math.abs(changePct) * 1.25;
 
   return {
     ...meta,
@@ -727,6 +886,8 @@ function buildStock(meta, quote) {
     relativeVolume: round(relativeVolume, 1),
     liquidity,
     gap: round(gap, 2),
+    turnover: round(turnover, 0),
+    rangePct: round(rangePct, 2),
     carry,
     quality,
     volume: volume ?? 0,
@@ -822,6 +983,7 @@ function render() {
   }
 
   renderAuthState();
+  renderFormulaRules();
   renderSurfaceState();
   renderPulseStrip(ranked);
   renderScanDigest(ranked);
@@ -887,6 +1049,73 @@ function renderSurfaceState() {
   elements.aiSummary.textContent = state.aiWorking
     ? "Breaking your prompt into horizon, risk posture, and participation signals."
     : `${state.profile.label} profile active. ${state.profile.description}`;
+}
+
+function renderFormulaRules() {
+  const rules = sanitizeFormulaRules(state.classicFilters.formulaRules);
+  state.classicFilters.formulaRules = rules;
+
+  elements.formulaSummary.textContent = rules.length
+    ? `${rules.length} rule${rules.length === 1 ? "" : "s"} active. All rules are combined with AND logic in this first version.`
+    : "No formula rules yet. Add a rule to layer custom logic on top of the classic screener.";
+
+  if (!rules.length) {
+    elements.formulaRuleList.innerHTML = `<p class="muted">No custom rules yet.</p>`;
+    return;
+  }
+
+  elements.formulaRuleList.innerHTML = rules
+    .map(
+      rule => `
+        <div class="formula-rule" data-rule-id="${rule.id}">
+          <label>
+            <span class="section-label">Field</span>
+            <select data-rule-prop="field">
+              ${FORMULA_FIELDS.map(
+                field => `<option value="${field.key}" ${field.key === rule.field ? "selected" : ""}>${field.label}</option>`,
+              ).join("")}
+            </select>
+          </label>
+          <label>
+            <span class="section-label">Operator</span>
+            <select data-rule-prop="operator">
+              ${getOperatorsForRule(rule)
+                .map(
+                  operator =>
+                    `<option value="${operator}" ${operator === rule.operator ? "selected" : ""}>${operator}</option>`,
+                )
+                .join("")}
+            </select>
+          </label>
+          <label>
+            <span class="section-label">Value</span>
+            <input data-rule-prop="value" type="${getFormulaFieldMeta(rule.field)?.type === "text" ? "text" : "number"}" step="any" value="${rule.value}" />
+          </label>
+          <button class="formula-remove" data-remove-rule="${rule.id}" type="button" aria-label="Remove rule">
+            ×
+          </button>
+        </div>
+      `,
+    )
+    .join("");
+
+  [...elements.formulaRuleList.querySelectorAll("[data-rule-prop]")].forEach(control => {
+    control.addEventListener("input", event => {
+      const row = event.target.closest("[data-rule-id]");
+      const ruleId = row?.dataset.ruleId;
+      const prop = event.target.dataset.ruleProp;
+      updateFormulaRule(ruleId, prop, event.target.value);
+    });
+  });
+
+  [...elements.formulaRuleList.querySelectorAll("[data-remove-rule]")].forEach(button => {
+    button.addEventListener("click", () => {
+      state.classicFilters.formulaRules = state.classicFilters.formulaRules.filter(
+        rule => rule.id !== button.dataset.removeRule,
+      );
+      renderFormulaRules();
+    });
+  });
 }
 
 function renderConnectionState() {

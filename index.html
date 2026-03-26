@@ -241,7 +241,47 @@ Find intraday names that can open strong, keep trend quality through the session
                     <option value="risk">Lowest risk</option>
                   </select>
                 </label>
+
+                <label>
+                  <span class="section-label">Minimum price</span>
+                  <input id="price-min-filter" type="number" min="0" step="0.01" value="0" />
+                </label>
+
+                <label>
+                  <span class="section-label">Maximum price</span>
+                  <input id="price-max-filter" type="number" min="0" step="0.01" value="9999" />
+                </label>
+
+                <label>
+                  <span class="section-label">Theme</span>
+                  <select id="theme-filter">
+                    <option value="all">All themes</option>
+                    <option value="AI infrastructure">AI infrastructure</option>
+                    <option value="Platform leader">Platform leader</option>
+                    <option value="Acceleration trade">Acceleration trade</option>
+                    <option value="Digital ads">Digital ads</option>
+                    <option value="Infrastructure leadership">Infrastructure leadership</option>
+                    <option value="Defensive growth">Defensive growth</option>
+                    <option value="Rate resilience">Rate resilience</option>
+                    <option value="Defensive compounder">Defensive compounder</option>
+                  </select>
+                </label>
               </div>
+              <section class="formula-panel">
+                <div class="formula-head">
+                  <div>
+                    <p class="section-label">Formula builder</p>
+                    <h3>Stack rule blocks without leaving the screener.</h3>
+                  </div>
+                  <button class="ghost-button compact-button" id="add-formula-rule" type="button">
+                    Add rule
+                  </button>
+                </div>
+                <div class="formula-rule-list" id="formula-rule-list"></div>
+                <p class="muted small-note" id="formula-summary">
+                  All rules are combined with AND logic in this first version.
+                </p>
+              </section>
               <div class="action-row">
                 <button class="primary-button" id="apply-filters">Apply screen</button>
                 <p class="muted">Transparent ranking tuned for conviction, liquidity, and downside control.</p>
