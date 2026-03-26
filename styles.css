@@ -344,6 +344,8 @@ textarea {
   align-items: center;
   justify-content: end;
   flex-wrap: wrap;
+  margin-left: auto;
+  padding-top: 4px;
 }
 
 .account-shell {
@@ -353,6 +355,7 @@ textarea {
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
+  margin-left: auto;
   min-width: 0;
 }
 
@@ -377,10 +380,10 @@ textarea {
   justify-content: space-between;
   gap: 14px;
   align-items: center;
-  min-width: 220px;
-  padding: 14px 16px;
+  min-width: 248px;
+  padding: 12px 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
+  border-radius: 18px;
   background: linear-gradient(180deg, rgba(10, 18, 28, 0.94), rgba(8, 15, 23, 0.82));
   color: var(--text);
   cursor: pointer;
@@ -407,8 +410,8 @@ textarea {
 .account-avatar {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background:
     radial-gradient(circle at 35% 28%, rgba(126, 242, 154, 0.88), transparent 20%),
@@ -423,13 +426,16 @@ textarea {
   top: calc(100% + 10px);
   right: 0;
   z-index: 30;
-  width: min(420px, 92vw);
+  width: min(360px, calc(100vw - 32px));
+  max-height: min(520px, calc(100vh - 110px));
   padding: 18px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 24px;
   background: linear-gradient(180deg, rgba(9, 17, 27, 0.98), rgba(7, 14, 22, 0.96));
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(22px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .account-shell:has(.account-drawer:not([hidden])) .account-trigger {
@@ -466,11 +472,11 @@ textarea {
   display: flex;
   gap: 10px;
   align-items: center;
-  padding-bottom: 11px;
 }
 
 .time-stamp {
-  padding-bottom: 11px;
+  white-space: nowrap;
+  color: var(--muted);
 }
 
 .status-dot {

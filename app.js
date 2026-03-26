@@ -204,6 +204,7 @@ const elements = {
   tabs: [...document.querySelectorAll(".surface-tab")],
   panels: [...document.querySelectorAll(".mode-panel")],
   authTabs: [...document.querySelectorAll(".auth-tab")],
+  authToggle: document.getElementById("auth-toggle"),
   aiQuery: document.getElementById("ai-query"),
   runAi: document.getElementById("run-ai"),
   aiSummary: document.getElementById("ai-summary"),
@@ -227,6 +228,8 @@ const elements = {
   watchlistNote: document.getElementById("watchlist-note"),
   accountBadge: document.getElementById("account-badge"),
   accountCopy: document.getElementById("account-copy"),
+  authEmailWrap: document.getElementById("auth-email-wrap"),
+  authPasswordWrap: document.getElementById("auth-password-wrap"),
   authEmail: document.getElementById("auth-email"),
   authPassword: document.getElementById("auth-password"),
   authSubmit: document.getElementById("auth-submit"),
@@ -1243,6 +1246,9 @@ function renderAuthState() {
       "Signed-in mode syncs this watchlist to your account, so it follows you after login.";
     elements.topbarSignIn.hidden = true;
     elements.topbarRegister.hidden = true;
+    elements.authToggle.hidden = true;
+    elements.authEmailWrap.hidden = true;
+    elements.authPasswordWrap.hidden = true;
     elements.authSubmit.hidden = true;
     elements.authGoogle.hidden = true;
     elements.authLogout.hidden = false;
@@ -1251,6 +1257,9 @@ function renderAuthState() {
     elements.authTabs.forEach(button => {
       button.disabled = true;
     });
+    elements.authMessage.textContent = state.currentUser.email_confirmed_at
+      ? "Account active. Watchlist and saved state now follow your profile."
+      : state.authMessage;
   } else {
     elements.accountBadge.textContent = "Guest";
     elements.topbarAccount.textContent = "Guest mode";
@@ -1260,6 +1269,9 @@ function renderAuthState() {
       "Guest mode keeps this list in this browser. Sign in to sync it to your account.";
     elements.topbarSignIn.hidden = false;
     elements.topbarRegister.hidden = false;
+    elements.authToggle.hidden = false;
+    elements.authEmailWrap.hidden = false;
+    elements.authPasswordWrap.hidden = false;
     elements.authSubmit.hidden = false;
     elements.authGoogle.hidden = false;
     elements.authLogout.hidden = true;
@@ -1269,9 +1281,8 @@ function renderAuthState() {
       button.disabled = false;
     });
     elements.authSubmit.textContent = state.authMode === "register" ? "Create account" : "Sign in";
+    elements.authMessage.textContent = state.authMessage;
   }
-
-  elements.authMessage.textContent = state.authMessage;
 }
 
 function renderSurfaceState() {
