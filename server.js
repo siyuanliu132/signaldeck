@@ -16,6 +16,10 @@ const marketCache = {
   quotes: new Map(),
   history: new Map(),
 };
+const inFlightMarketRequests = {
+  quotes: new Map(),
+  history: new Map(),
+};
 
 loadEnvFile();
 ensureStorage();
@@ -235,33 +239,42 @@ async function handleQuotes(requestUrl, request, response) {
   const cacheKey = symbols;
   const cached = readCacheEntry(marketCache.quotes, cacheKey, QUOTE_CACHE_TTL_MS);
   if (cached) {
-    return respondJson(response, 200, {
-      provider: providerName,
-      fetchedAt: cached.fetchedAt,
-      cached: true,
-      data: cached.data,
-    });
+    return respondMarketPayload(response, cached, { cached: true });
+  }
+
+  const activeRequest = inFlightMarketRequests.quotes.get(cacheKey);
+  if (activeRequest) {
+    try {
+      const sharedPayload = await activeRequest;
+      return respondMarketPayload(response, sharedPayload, { cached: true, shared: true });
+    } catch (error) {
+      const staleEntry = readCacheEntry(marketCache.quotes, cacheKey, Number.MAX_SAFE_INTEGER);
+      if (staleEntry) {
+        return respondMarketPayload(response, staleEntry, { cached: true, stale: true });
+      }
+      return respondJson(response, 502, { error: "Quote request failed." });
+    }
   }
 
   try {
-    const upstream = await fetch(
+    const requestPromise = fetchMarketPayload(
       `${apiBase}/quote?symbol=${encodeURIComponent(symbols)}&apikey=${encodeURIComponent(apiKey)}`,
+      "Unable to fetch quote data.",
     );
-    const payload = await upstream.json();
-    if (!upstream.ok || payload.status === "error") {
-      return respondJson(response, inferUpstreamStatus(upstream.status, payload.message), {
-        error: payload.message || "Unable to fetch quote data.",
-      });
-    }
-
-    writeCacheEntry(marketCache.quotes, cacheKey, payload);
-    return respondJson(response, 200, {
-      provider: providerName,
-      fetchedAt: new Date().toISOString(),
-      data: payload,
-    });
+    inFlightMarketRequests.quotes.set(cacheKey, requestPromise);
+    const freshPayload = await requestPromise;
+    writeCacheEntry(marketCache.quotes, cacheKey, freshPayload.data, freshPayload.fetchedAt);
+    return respondMarketPayload(response, freshPayload);
   } catch (error) {
-    return respondJson(response, 502, { error: "Quote request failed." });
+    const staleEntry = readCacheEntry(marketCache.quotes, cacheKey, Number.MAX_SAFE_INTEGER);
+    if (staleEntry) {
+      return respondMarketPayload(response, staleEntry, { cached: true, stale: true, warning: error.message });
+    }
+    return respondJson(response, inferUpstreamStatus(null, error.message), {
+      error: error.message || "Quote request failed.",
+    });
+  } finally {
+    inFlightMarketRequests.quotes.delete(cacheKey);
   }
 }
 
@@ -281,33 +294,42 @@ async function handleHistory(requestUrl, request, response) {
   const cacheKey = `${symbol}:${interval}:${outputsize}`;
   const cached = readCacheEntry(marketCache.history, cacheKey, HISTORY_CACHE_TTL_MS);
   if (cached) {
-    return respondJson(response, 200, {
-      provider: providerName,
-      fetchedAt: cached.fetchedAt,
-      cached: true,
-      data: cached.data,
-    });
+    return respondMarketPayload(response, cached, { cached: true });
+  }
+
+  const activeRequest = inFlightMarketRequests.history.get(cacheKey);
+  if (activeRequest) {
+    try {
+      const sharedPayload = await activeRequest;
+      return respondMarketPayload(response, sharedPayload, { cached: true, shared: true });
+    } catch (error) {
+      const staleEntry = readCacheEntry(marketCache.history, cacheKey, Number.MAX_SAFE_INTEGER);
+      if (staleEntry) {
+        return respondMarketPayload(response, staleEntry, { cached: true, stale: true });
+      }
+      return respondJson(response, 502, { error: "Time-series request failed." });
+    }
   }
 
   try {
-    const upstream = await fetch(
+    const requestPromise = fetchMarketPayload(
       `${apiBase}/time_series?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&outputsize=${encodeURIComponent(outputsize)}&apikey=${encodeURIComponent(apiKey)}`,
+      "Unable to fetch time-series data.",
     );
-    const payload = await upstream.json();
-    if (!upstream.ok || payload.status === "error") {
-      return respondJson(response, inferUpstreamStatus(upstream.status, payload.message), {
-        error: payload.message || "Unable to fetch time-series data.",
-      });
-    }
-
-    writeCacheEntry(marketCache.history, cacheKey, payload);
-    return respondJson(response, 200, {
-      provider: providerName,
-      fetchedAt: new Date().toISOString(),
-      data: payload,
-    });
+    inFlightMarketRequests.history.set(cacheKey, requestPromise);
+    const freshPayload = await requestPromise;
+    writeCacheEntry(marketCache.history, cacheKey, freshPayload.data, freshPayload.fetchedAt);
+    return respondMarketPayload(response, freshPayload);
   } catch (error) {
-    return respondJson(response, 502, { error: "Time-series request failed." });
+    const staleEntry = readCacheEntry(marketCache.history, cacheKey, Number.MAX_SAFE_INTEGER);
+    if (staleEntry) {
+      return respondMarketPayload(response, staleEntry, { cached: true, stale: true, warning: error.message });
+    }
+    return respondJson(response, inferUpstreamStatus(null, error.message), {
+      error: error.message || "Time-series request failed.",
+    });
+  } finally {
+    inFlightMarketRequests.history.delete(cacheKey);
   }
 }
 
@@ -329,12 +351,37 @@ function readCacheEntry(store, key, ttlMs) {
   return entry;
 }
 
-function writeCacheEntry(store, key, data) {
+function writeCacheEntry(store, key, data, fetchedAt = new Date().toISOString()) {
   store.set(key, {
     data,
-    fetchedAt: new Date().toISOString(),
+    fetchedAt,
     cachedAt: Date.now(),
   });
+}
+
+function respondMarketPayload(response, payload, extras = {}) {
+  return respondJson(response, 200, {
+    provider: providerName,
+    fetchedAt: payload.fetchedAt,
+    data: payload.data,
+    ...extras,
+  });
+}
+
+async function fetchMarketPayload(url, fallbackMessage) {
+  const upstream = await fetch(url);
+  const payload = await upstream.json();
+  if (!upstream.ok || payload.status === "error") {
+    const message = payload.message || fallbackMessage;
+    const error = new Error(message);
+    error.statusCode = inferUpstreamStatus(upstream.status, message);
+    throw error;
+  }
+
+  return {
+    data: payload,
+    fetchedAt: new Date().toISOString(),
+  };
 }
 
 function inferUpstreamStatus(statusCode, message) {

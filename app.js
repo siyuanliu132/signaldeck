@@ -31,6 +31,7 @@ const state = {
   aiWorking: false,
   apiKey: loadStoredApiKey(),
   apiConfig: { hasServerKey: false, provider: "Twelve Data" },
+  marketTransport: "idle",
   quoteMap: {},
   historyMap: {},
   lastUpdatedAt: null,
@@ -592,12 +593,14 @@ async function refreshMarketData(options = {}) {
     const payload = await fetchJson(`/api/market/quotes?symbols=${encodeURIComponent(symbols)}`);
     state.quoteMap = normalizeQuotes(payload.data);
     state.lastUpdatedAt = payload.fetchedAt || new Date().toISOString();
+    state.marketTransport = payload.stale ? "stale" : payload.shared ? "shared" : payload.cached ? "cached" : "fresh";
     state.loadError = "";
 
     if (!state.historyMap[state.selectedSymbol]) {
       await loadHistory(state.selectedSymbol);
     }
   } catch (error) {
+    state.marketTransport = "error";
     state.loadError = error.message;
   } finally {
     state.isRefreshing = false;
@@ -619,8 +622,12 @@ async function loadHistory(symbol) {
       `/api/market/history?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(HISTORY_INTERVAL)}&outputsize=${HISTORY_POINTS}`,
     );
     state.historyMap[symbol] = normalizeHistory(payload.data);
+    if (payload.stale) {
+      state.marketTransport = "stale";
+    }
     state.loadError = "";
   } catch (error) {
+    state.marketTransport = "error";
     state.loadError = error.message;
   } finally {
     state.isLoadingHistory = false;
@@ -897,10 +904,20 @@ function renderConnectionState() {
     elements.feedStatus.textContent = "Market data unavailable";
     elements.connectionState.textContent = state.loadError;
   } else if (Object.keys(state.quoteMap).length) {
-    elements.feedStatus.textContent = "Real market data connected";
-    elements.connectionState.textContent = state.apiConfig.hasServerKey
-      ? "Server-side API key detected. This build is ready for public deployment."
-      : "Using a browser-stored API key. Fine for local testing; use a server env var for public deploys.";
+    if (state.marketTransport === "shared" || state.marketTransport === "cached") {
+      elements.feedStatus.textContent = "Shared market snapshot connected";
+      elements.connectionState.textContent =
+        "This visitor is reusing a shared server-side market snapshot instead of triggering a brand-new upstream request.";
+    } else if (state.marketTransport === "stale") {
+      elements.feedStatus.textContent = "Cached market snapshot connected";
+      elements.connectionState.textContent =
+        "SignalDeck is serving the latest safe cached snapshot because the upstream feed is currently constrained.";
+    } else {
+      elements.feedStatus.textContent = "Real market data connected";
+      elements.connectionState.textContent = state.apiConfig.hasServerKey
+        ? "Server-side API key detected. This build is ready for public deployment."
+        : "Using a browser-stored API key. Fine for local testing; use a server env var for public deploys.";
+    }
   } else {
     elements.feedStatus.textContent = "Waiting for market data connection";
     elements.connectionState.textContent =
