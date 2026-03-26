@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SignalDeck</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="rail">
+        <div class="brand-lockup">
+          <div class="brand-mark">SD</div>
+          <div>
+            <p class="eyebrow">SignalDeck</p>
+            <h1>Market intelligence for high-conviction setups.</h1>
+          </div>
+        </div>
+
+        <nav class="rail-section">
+          <p class="section-label">Quick prompts</p>
+          <button class="prompt-pill" data-prompt="Find intraday names with strong momentum and low trap risk.">
+            Intraday strength
+          </button>
+          <button class="prompt-pill" data-prompt="Show lower-risk overnight candidates with healthy liquidity.">
+            Overnight carry
+          </button>
+          <button class="prompt-pill" data-prompt="Identify blue-chip swing setups with solid continuation.">
+            Blue-chip swing
+          </button>
+          <button class="prompt-pill" data-prompt="Scan for names with expanding volume but controlled downside.">
+            Volume expansion
+          </button>
+        </nav>
+
+        <section class="rail-section">
+          <p class="section-label">Data connection</p>
+          <p class="muted" id="connection-state">
+            Connect a free market-data key to replace the prototype feed with live quote snapshots.
+          </p>
+          <label class="api-key-wrap" for="api-key-input">
+            <span class="section-label">API key</span>
+            <input id="api-key-input" type="password" placeholder="Paste your Twelve Data API key" />
+          </label>
+          <button class="primary-button secondary-button" id="save-api-key">Save key</button>
+          <p class="muted small-note" id="data-source-note">
+            Public deploys should use a server environment variable instead of a client-stored key.
+          </p>
+        </section>
+
+        <section class="rail-section">
+          <p class="section-label">System notes</p>
+          <ul class="rail-list">
+            <li>AI mode translates natural language into a setup profile.</li>
+            <li>Classic mode exposes transparent filters and ranking logic.</li>
+            <li>Real quotes come from a small tracked universe to fit free API credit limits.</li>
+          </ul>
+        </section>
+
+        <section class="rail-section">
+          <div class="watchlist-head">
+            <p class="section-label">Watchlist</p>
+            <span class="mono" id="watchlist-count">0 saved</span>
+          </div>
+          <div class="watchlist-list" id="watchlist-list"></div>
+        </section>
+
+        <section class="rail-section rail-footer">
+          <p class="section-label">Positioning</p>
+          <p class="muted">
+            Built as a front-end prototype for a real financial product, focused on discovery,
+            ranking, and risk explanation rather than blind price prediction.
+          </p>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Live market scanner</p>
+            <p class="topbar-copy">
+              Parse trader intent, surface setups, and explain why each name passed the risk gate.
+            </p>
+          </div>
+          <div class="topbar-actions">
+            <button class="primary-button" id="refresh-market">Refresh market</button>
+            <div class="status-cluster">
+              <span class="status-dot"></span>
+              <span id="feed-status-text">Waiting for market data connection</span>
+            </div>
+            <p class="mono time-stamp" id="last-updated">Updated just now</p>
+          </div>
+        </header>
+
+        <section class="pulse-strip" id="pulse-strip"></section>
+
+        <section class="control-surface">
+          <div class="surface-header">
+            <div class="mode-switch">
+              <button class="surface-tab active" data-mode="ai">AI Mode</button>
+              <button class="surface-tab" data-mode="classic">Classic Mode</button>
+            </div>
+            <p class="muted" id="surface-caption">
+              Translate plain English goals into a market scan profile.
+            </p>
+          </div>
+
+          <div class="surface-body">
+            <section class="query-panel mode-panel active" data-panel="ai">
+              <label class="section-label" for="ai-query">Prompt the market scanner</label>
+              <textarea id="ai-query" rows="4">
+Find intraday names that can open strong, keep trend quality through the session, and avoid obvious gap-and-fade traps.</textarea
+              >
+              <div class="action-row">
+                <button class="primary-button" id="run-ai">Run AI scan</button>
+                <p class="muted" id="ai-summary">Balanced momentum profile with trap-risk penalty enabled.</p>
+              </div>
+            </section>
+
+            <section class="filters-panel mode-panel" data-panel="classic">
+              <div class="filters-grid">
+                <label>
+                  <span class="section-label">Session</span>
+                  <select id="session-filter">
+                    <option value="all">All setups</option>
+                    <option value="intraday">Intraday focus</option>
+                    <option value="overnight">Overnight focus</option>
+                    <option value="swing">Swing focus</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span class="section-label">Minimum momentum</span>
+                  <input id="momentum-filter" type="range" min="40" max="95" value="68" />
+                  <span class="range-value" id="momentum-value">68</span>
+                </label>
+
+                <label>
+                  <span class="section-label">Maximum risk</span>
+                  <input id="risk-filter" type="range" min="20" max="80" value="48" />
+                  <span class="range-value" id="risk-value">48</span>
+                </label>
+
+                <label>
+                  <span class="section-label">Minimum relative volume</span>
+                  <input id="volume-filter" type="range" min="10" max="30" value="15" />
+                  <span class="range-value" id="volume-value">1.5x</span>
+                </label>
+              </div>
+              <div class="action-row">
+                <button class="primary-button" id="apply-filters">Apply screen</button>
+                <p class="muted">Transparent ranking tuned for conviction, liquidity, and downside control.</p>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="brief-grid">
+          <section class="brief-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">AI market brief</p>
+                <h2 id="brief-headline">Opening strength with controlled downside.</h2>
+              </div>
+              <p class="mono" id="brief-window">First 90 minutes</p>
+            </div>
+            <p class="muted" id="brief-body">
+              The scanner is prioritizing trend quality and participation over raw gap size, so
+              names that keep buyers after the open should surface first.
+            </p>
+            <dl class="brief-metrics" id="brief-metrics"></dl>
+          </section>
+
+          <section class="weights-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Ranking model</p>
+                <h2>What drives the score</h2>
+              </div>
+              <p class="mono" id="weight-caption">Live profile</p>
+            </div>
+            <div class="weight-bars" id="weight-bars"></div>
+          </section>
+        </section>
+
+        <section class="main-grid">
+          <section class="opportunity-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Opportunity board</p>
+                <h2 id="results-title">Top setups right now</h2>
+              </div>
+              <p class="mono" id="results-meta">6 matches</p>
+            </div>
+
+            <div class="opportunity-toolbar">
+              <label class="search-wrap" for="symbol-search">
+                <span class="section-label">Search</span>
+                <input id="symbol-search" type="search" placeholder="Filter by symbol, company, or theme" />
+              </label>
+            </div>
+
+            <div class="opportunity-head">
+              <span>Save</span>
+              <span>Symbol</span>
+              <span>Price</span>
+              <span>Momentum</span>
+              <span>Risk</span>
+              <span>Score</span>
+            </div>
+            <div id="opportunity-list" class="opportunity-list"></div>
+          </section>
+
+          <aside class="inspector-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Signal inspector</p>
+                <h2 id="inspector-symbol">NVDA</h2>
+              </div>
+              <p class="mono" id="inspector-tag">Intraday continuation</p>
+            </div>
+
+            <div class="inspector-priceband">
+              <div>
+                <span class="section-label">Last price</span>
+                <p class="inspector-price" id="inspector-price">$928.15</p>
+              </div>
+              <div>
+                <span class="section-label">Score</span>
+                <p class="inspector-score" id="inspector-score">91</p>
+              </div>
+            </div>
+
+            <div class="sparkline-wrap">
+              <svg id="sparkline" viewBox="0 0 320 110" preserveAspectRatio="none"></svg>
+            </div>
+
+            <section class="inspector-block">
+              <p class="section-label">Why it passed</p>
+              <ul class="signal-list" id="signal-list"></ul>
+            </section>
+
+            <section class="inspector-block">
+              <p class="section-label">Risk readout</p>
+              <div class="risk-meter">
+                <div class="risk-bar">
+                  <span id="risk-fill"></span>
+                </div>
+                <div class="risk-copy">
+                  <span id="risk-score-label">38 / 100 risk</span>
+                  <span id="risk-note">Strong liquidity helps absorb pullbacks.</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="inspector-block">
+              <p class="section-label">Market context</p>
+              <dl class="context-grid" id="context-grid"></dl>
+            </section>
+          </aside>
+        </section>
+
+        <section class="execution-grid">
+          <section class="execution-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Execution map</p>
+                <h2 id="execution-headline">NVDA fits the current scanner profile.</h2>
+              </div>
+              <p class="mono" id="execution-chip">Intraday plan</p>
+            </div>
+            <p class="muted" id="execution-body">
+              Favor controlled continuation rather than chasing unstable opening spikes.
+            </p>
+            <dl class="context-grid execution-grid-list" id="execution-grid-list"></dl>
+          </section>
+
+          <section class="execution-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Monitor stack</p>
+                <h2>What to watch next</h2>
+              </div>
+              <p class="mono">Decision cues</p>
+            </div>
+            <ul class="signal-list" id="monitor-list"></ul>
+          </section>
+        </section>
+
+        <footer class="footer-note">
+          <p>
+            Demo only. SignalDeck surfaces opportunities and risk context; it does not provide
+            guaranteed returns or personalized financial advice.
+          </p>
+        </footer>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

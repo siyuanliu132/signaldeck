@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: signaldeck
+    env: node
+    plan: free
+    buildCommand: ""
+    startCommand: npm start
+    envVars:
+      - key: TWELVE_DATA_API_KEY
+        sync: false
