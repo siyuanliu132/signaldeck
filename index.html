@@ -40,38 +40,6 @@
         </nav>
 
         <section class="rail-section">
-          <div class="watchlist-head">
-            <p class="section-label">Account</p>
-            <span class="mono" id="account-badge">Guest</span>
-          </div>
-          <p class="muted small-note" id="account-copy">
-            Create an account to keep watchlists and saved state tied to your profile.
-          </p>
-          <div class="auth-toggle">
-            <button class="auth-tab active" data-auth-mode="login">Sign in</button>
-            <button class="auth-tab" data-auth-mode="register">Register</button>
-          </div>
-          <div class="auth-stack">
-            <label class="api-key-wrap" for="auth-email">
-              <span class="section-label">Email</span>
-              <input id="auth-email" type="email" placeholder="you@example.com" />
-            </label>
-            <label class="api-key-wrap" for="auth-password">
-              <span class="section-label">Password</span>
-              <input id="auth-password" type="password" placeholder="At least 8 characters" />
-            </label>
-            <div class="auth-actions">
-              <button class="primary-button secondary-button" id="auth-submit">Sign in</button>
-              <button class="ghost-button" id="auth-google">Continue with Google</button>
-              <button class="ghost-button" id="auth-logout" hidden>Sign out</button>
-            </div>
-            <p class="muted small-note" id="auth-message">
-              Guest mode stores watchlists only in this browser.
-            </p>
-          </div>
-        </section>
-
-        <section class="rail-section">
           <p class="section-label">Data connection</p>
           <p class="muted" id="connection-state">
             Connect a free market-data key to replace the prototype feed with live quote snapshots.
@@ -117,8 +85,9 @@
 
       <main class="workspace">
         <header class="topbar">
-          <div>
+          <div class="hero-copy">
             <p class="eyebrow">Live market scanner</p>
+            <h2 class="hero-title">SignalDeck turns market noise into a shared intelligence surface.</h2>
             <p class="topbar-copy">
               AI-guided discovery built on live quotes, explainable ranking, and transparent risk
               filters.
@@ -130,9 +99,51 @@
               <span class="status-dot"></span>
               <span id="feed-status-text">Waiting for market data connection</span>
             </div>
-            <div class="account-pill">
-              <span class="section-label">Account</span>
-              <strong id="topbar-account">Guest mode</strong>
+            <div class="account-shell">
+              <div class="auth-quick-row">
+                <button class="ghost-button quick-auth-button" id="topbar-signin">Sign in</button>
+                <button class="ghost-button quick-auth-button" id="topbar-register">Register</button>
+              </div>
+              <button class="account-trigger" id="account-trigger" type="button" aria-expanded="false">
+                <div class="account-trigger-copy">
+                  <span class="section-label">Account</span>
+                  <strong id="topbar-account">Guest mode</strong>
+                </div>
+                <span class="account-avatar" id="account-avatar">G</span>
+              </button>
+              <div class="account-drawer" id="account-drawer" hidden>
+                <div class="account-drawer-head">
+                  <div>
+                    <p class="section-label">Account</p>
+                    <h3 id="account-badge">Guest</h3>
+                  </div>
+                  <p class="muted small-note" id="account-copy">
+                    Create an account to keep watchlists and saved state tied to your profile.
+                  </p>
+                </div>
+                <div class="auth-toggle">
+                  <button class="auth-tab active" data-auth-mode="login">Sign in</button>
+                  <button class="auth-tab" data-auth-mode="register">Register</button>
+                </div>
+                <div class="auth-stack">
+                  <label class="api-key-wrap" for="auth-email">
+                    <span class="section-label">Email</span>
+                    <input id="auth-email" type="email" placeholder="you@example.com" />
+                  </label>
+                  <label class="api-key-wrap" for="auth-password">
+                    <span class="section-label">Password</span>
+                    <input id="auth-password" type="password" placeholder="At least 8 characters" />
+                  </label>
+                  <div class="auth-actions">
+                    <button class="primary-button secondary-button" id="auth-submit">Sign in</button>
+                    <button class="ghost-button" id="auth-google">Continue with Google</button>
+                    <button class="ghost-button" id="auth-logout" hidden>Sign out</button>
+                  </div>
+                  <p class="muted small-note" id="auth-message">
+                    Guest mode stores watchlists only in this browser.
+                  </p>
+                </div>
+              </div>
             </div>
             <p class="mono time-stamp" id="last-updated">Updated just now</p>
           </div>
@@ -288,15 +299,26 @@ Find intraday names that can open strong, keep trend quality through the session
                 <div class="formula-head">
                   <div>
                     <p class="section-label">Formula builder</p>
-                    <h3>Stack rule blocks without leaving the screener.</h3>
+                    <h3>Stack rule blocks with real logic operators.</h3>
                   </div>
-                  <button class="ghost-button compact-button" id="add-formula-rule" type="button">
-                    Add rule
-                  </button>
+                  <div class="formula-controls">
+                    <label class="logic-mode-wrap" for="logic-mode-filter">
+                      <span class="section-label">Group logic</span>
+                      <select id="logic-mode-filter">
+                        <option value="AND">AND</option>
+                        <option value="OR">OR</option>
+                        <option value="NAND">NAND</option>
+                        <option value="NOR">NOR</option>
+                      </select>
+                    </label>
+                    <button class="ghost-button compact-button" id="add-formula-rule" type="button">
+                      Add rule
+                    </button>
+                  </div>
                 </div>
                 <div class="formula-rule-list" id="formula-rule-list"></div>
                 <p class="muted small-note" id="formula-summary">
-                  All rules are combined with AND logic in this first version.
+                  Rules can now run through AND, OR, NAND, or NOR, and each rule can be inverted with NOT.
                 </p>
               </section>
               <div class="action-row">

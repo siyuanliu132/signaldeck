@@ -57,10 +57,11 @@ const CLASSIC_PRESETS = {
       minPrice: 8,
       maxPrice: 80,
       theme: "all",
+      groupMode: "AND",
       formulaRules: [
-        { id: createRuleId(), field: "gap", operator: ">=", value: "1.5" },
-        { id: createRuleId(), field: "drivePct", operator: ">=", value: "0.4" },
-        { id: createRuleId(), field: "turnover", operator: ">=", value: "8000000" },
+        { id: createRuleId(), field: "gap", operator: ">=", value: "1.5", negate: false },
+        { id: createRuleId(), field: "drivePct", operator: ">=", value: "0.4", negate: false },
+        { id: createRuleId(), field: "turnover", operator: ">=", value: "8000000", negate: false },
       ],
     },
     summary: "Opening drive loads intraday names with real participation, a constructive gap, and clear drive from the open.",
@@ -79,10 +80,11 @@ const CLASSIC_PRESETS = {
       minPrice: 10,
       maxPrice: 150,
       theme: "all",
+      groupMode: "AND",
       formulaRules: [
-        { id: createRuleId(), field: "vwapDrift", operator: ">=", value: "0.15" },
-        { id: createRuleId(), field: "closePosition", operator: ">=", value: "0.58" },
-        { id: createRuleId(), field: "relativeVolume", operator: ">=", value: "1.4" },
+        { id: createRuleId(), field: "vwapDrift", operator: ">=", value: "0.15", negate: false },
+        { id: createRuleId(), field: "closePosition", operator: ">=", value: "0.58", negate: false },
+        { id: createRuleId(), field: "relativeVolume", operator: ">=", value: "1.4", negate: false },
       ],
     },
     summary: "VWAP reclaim uses a quote-structure VWAP proxy for now, surfacing names that are holding back above value after early pressure.",
@@ -101,9 +103,10 @@ const CLASSIC_PRESETS = {
       minPrice: 5,
       maxPrice: 200,
       theme: "all",
+      groupMode: "OR",
       formulaRules: [
-        { id: createRuleId(), field: "turnover", operator: ">=", value: "12000000" },
-        { id: createRuleId(), field: "rangePct", operator: ">=", value: "2.4" },
+        { id: createRuleId(), field: "turnover", operator: ">=", value: "12000000", negate: false },
+        { id: createRuleId(), field: "rangePct", operator: ">=", value: "2.4", negate: false },
       ],
     },
     summary: "Liquidity sweep biases toward faster tape, bigger turnover, and names that are actually attracting capital.",
@@ -122,9 +125,10 @@ const CLASSIC_PRESETS = {
       minPrice: 20,
       maxPrice: 300,
       theme: "all",
+      groupMode: "AND",
       formulaRules: [
-        { id: createRuleId(), field: "carry", operator: ">=", value: "74" },
-        { id: createRuleId(), field: "vwapDrift", operator: ">=", value: "-0.3" },
+        { id: createRuleId(), field: "carry", operator: ">=", value: "74", negate: false },
+        { id: createRuleId(), field: "vwapDrift", operator: ">=", value: "-0.3", negate: false },
       ],
     },
     summary: "Clean carry cuts out fragile tape and prefers higher-quality liquid names that can hold into the next session.",
@@ -140,6 +144,7 @@ const state = {
   selectedSymbol: "NVDA",
   authMode: "login",
   currentUser: null,
+  accountMenuOpen: false,
   aiWorking: false,
   apiKey: loadStoredApiKey(),
   apiConfig: { hasServerKey: false, provider: "Twelve Data" },
@@ -185,9 +190,10 @@ const state = {
     minPrice: 0,
     maxPrice: 9999,
     theme: "all",
+    groupMode: "AND",
     formulaRules: [
-      { id: createRuleId(), field: "relativeVolume", operator: ">=", value: "1.5" },
-      { id: createRuleId(), field: "quality", operator: ">=", value: "70" },
+      { id: createRuleId(), field: "relativeVolume", operator: ">=", value: "1.5", negate: false },
+      { id: createRuleId(), field: "quality", operator: ">=", value: "70", negate: false },
     ],
   },
 };
@@ -227,7 +233,12 @@ const elements = {
   authGoogle: document.getElementById("auth-google"),
   authLogout: document.getElementById("auth-logout"),
   authMessage: document.getElementById("auth-message"),
+  topbarSignIn: document.getElementById("topbar-signin"),
+  topbarRegister: document.getElementById("topbar-register"),
   topbarAccount: document.getElementById("topbar-account"),
+  accountTrigger: document.getElementById("account-trigger"),
+  accountDrawer: document.getElementById("account-drawer"),
+  accountAvatar: document.getElementById("account-avatar"),
   briefHeadline: document.getElementById("brief-headline"),
   briefWindow: document.getElementById("brief-window"),
   briefBody: document.getElementById("brief-body"),
@@ -259,6 +270,7 @@ const elements = {
   addFormulaRule: document.getElementById("add-formula-rule"),
   formulaSummary: document.getElementById("formula-summary"),
   presetSummary: document.getElementById("preset-summary"),
+  logicModeFilter: document.getElementById("logic-mode-filter"),
   momentumValue: document.getElementById("momentum-value"),
   riskValue: document.getElementById("risk-value"),
   volumeValue: document.getElementById("volume-value"),
@@ -315,6 +327,20 @@ function bindEvents() {
   elements.authTabs.forEach(button => {
     button.addEventListener("click", () => setAuthMode(button.dataset.authMode));
   });
+  elements.topbarSignIn.addEventListener("click", () => {
+    state.accountMenuOpen = true;
+    setAuthMode("login");
+    renderAuthState();
+  });
+  elements.topbarRegister.addEventListener("click", () => {
+    state.accountMenuOpen = true;
+    setAuthMode("register");
+    renderAuthState();
+  });
+  elements.accountTrigger.addEventListener("click", () => {
+    state.accountMenuOpen = !state.accountMenuOpen;
+    renderAuthState();
+  });
 
   elements.runAi.addEventListener("click", () => handleAiRun(elements.aiQuery.value.trim()));
   elements.applyFilters.addEventListener("click", applyClassicFilters);
@@ -345,9 +371,22 @@ function bindEvents() {
   elements.qualityFilter.addEventListener("input", event => {
     elements.qualityValue.textContent = event.target.value;
   });
+  elements.logicModeFilter.addEventListener("change", event => {
+    state.classicFilters.groupMode = event.target.value;
+    renderFormulaRules();
+  });
   elements.addFormulaRule.addEventListener("click", () => {
     state.classicFilters.formulaRules.push(createFormulaRule());
     renderFormulaRules();
+  });
+  document.addEventListener("click", event => {
+    if (!state.accountMenuOpen) {
+      return;
+    }
+    if (!event.target.closest(".account-shell")) {
+      state.accountMenuOpen = false;
+      renderAuthState();
+    }
   });
 }
 
@@ -379,6 +418,7 @@ function syncClassicControls() {
   elements.priceMinFilter.value = String(state.classicFilters.minPrice);
   elements.priceMaxFilter.value = String(state.classicFilters.maxPrice);
   elements.themeFilter.value = state.classicFilters.theme;
+  elements.logicModeFilter.value = state.classicFilters.groupMode;
   elements.momentumValue.textContent = String(state.classicFilters.minMomentum);
   elements.riskValue.textContent = String(state.classicFilters.maxRisk);
   elements.volumeValue.textContent = `${state.classicFilters.minRelativeVolume.toFixed(1)}x`;
@@ -402,11 +442,40 @@ function applyClassicPreset(presetKey) {
 }
 
 function createFormulaRule() {
-  return { id: createRuleId(), field: "relativeVolume", operator: ">=", value: "1.5" };
+  return { id: createRuleId(), field: "relativeVolume", operator: ">=", value: "1.5", negate: false };
 }
 
 function createRuleId() {
   return `rule-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getAccountLabel(user) {
+  if (!user?.email) {
+    return "Guest mode";
+  }
+
+  return user.email.length > 28 ? `${user.email.slice(0, 25)}...` : user.email;
+}
+
+function getAccountInitials(user) {
+  const source = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "Guest";
+  const clean = String(source).trim();
+  if (!clean) {
+    return "G";
+  }
+
+  const parts = clean
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  if (!parts.length) {
+    return "G";
+  }
+
+  return parts
+    .map(part => part[0])
+    .join("")
+    .toUpperCase();
 }
 
 function sanitizeFormulaRules(rules) {
@@ -416,6 +485,7 @@ function sanitizeFormulaRules(rules) {
       field: getFormulaFieldMeta(rule.field)?.key || "relativeVolume",
       operator: rule.operator || ">=",
       value: String(rule.value ?? ""),
+      negate: Boolean(rule.negate),
     }));
 }
 
@@ -435,7 +505,7 @@ function updateFormulaRule(ruleId, prop, value) {
     return;
   }
 
-  rule[prop] = value;
+  rule[prop] = prop === "negate" ? Boolean(value) : value;
   if (prop === "field") {
     rule.operator = getOperatorsForRule(rule)[0];
     rule.value = getFormulaFieldMeta(value)?.type === "text" ? "" : "0";
@@ -443,10 +513,26 @@ function updateFormulaRule(ruleId, prop, value) {
   renderFormulaRules();
 }
 
-function matchesFormulaRules(stock, rules) {
-  return sanitizeFormulaRules(rules)
-    .filter(rule => String(rule.value).trim() !== "")
-    .every(rule => evaluateFormulaRule(stock, rule));
+function matchesFormulaRules(stock, rules, groupMode = "AND") {
+  const activeRules = sanitizeFormulaRules(rules).filter(rule => String(rule.value).trim() !== "");
+  if (!activeRules.length) {
+    return true;
+  }
+
+  const results = activeRules.map(rule => evaluateFormulaRule(stock, rule));
+  const any = results.some(Boolean);
+  const all = results.every(Boolean);
+
+  switch (String(groupMode || "AND").toUpperCase()) {
+    case "OR":
+      return any;
+    case "NAND":
+      return !all;
+    case "NOR":
+      return !any;
+    default:
+      return all;
+  }
 }
 
 function evaluateFormulaRule(stock, rule) {
@@ -462,13 +548,13 @@ function evaluateFormulaRule(stock, rule) {
     if (!right) {
       return true;
     }
+    let result = left === right;
     if (rule.operator === "contains") {
-      return left.includes(right);
+      result = left.includes(right);
+    } else if (rule.operator === "is not") {
+      result = left !== right;
     }
-    if (rule.operator === "is not") {
-      return left !== right;
-    }
-    return left === right;
+    return rule.negate ? !result : result;
   }
 
   const left = Number(stockValue);
@@ -477,20 +563,29 @@ function evaluateFormulaRule(stock, rule) {
     return true;
   }
 
+  let result;
   switch (rule.operator) {
     case ">=":
-      return left >= right;
+      result = left >= right;
+      break;
     case ">":
-      return left > right;
+      result = left > right;
+      break;
     case "<=":
-      return left <= right;
+      result = left <= right;
+      break;
     case "<":
-      return left < right;
+      result = left < right;
+      break;
     case "!=":
-      return left !== right;
+      result = left !== right;
+      break;
     default:
-      return left === right;
+      result = left === right;
+      break;
   }
+
+  return rule.negate ? !result : result;
 }
 
 async function fetchSession() {
@@ -648,6 +743,7 @@ function applyClassicFilters() {
     minPrice: Number(elements.priceMinFilter.value) || 0,
     maxPrice: Number(elements.priceMaxFilter.value) || 9999,
     theme: elements.themeFilter.value,
+    groupMode: elements.logicModeFilter.value,
     formulaRules: sanitizeFormulaRules(state.classicFilters.formulaRules),
   };
 
@@ -675,7 +771,7 @@ function applyClassicFilters() {
         stock.quality >= state.classicFilters.minQuality &&
         stock.price >= state.classicFilters.minPrice &&
         stock.price <= state.classicFilters.maxPrice &&
-        matchesFormulaRules(stock, state.classicFilters.formulaRules)
+        matchesFormulaRules(stock, state.classicFilters.formulaRules, state.classicFilters.groupMode)
       );
     },
     scoreConfig: {
@@ -704,17 +800,17 @@ function applyClassicFilters() {
       riskBias: state.classicFilters.maxRisk <= 30 ? "Conservative" : "Balanced",
       executionNote:
         "The classic screen lets the operator directly control the score through momentum, risk, sector, quality, and liquidity thresholds.",
-      monitorFocus: `${state.classicFilters.minMomentum}+ momentum, ${state.classicFilters.minRelativeVolume.toFixed(1)}x volume, ${state.classicFilters.maxRisk} max risk, ${state.classicFilters.minQuality}+ quality`,
+      monitorFocus: `${state.classicFilters.groupMode} logic with ${state.classicFilters.formulaRules.length} custom rule${state.classicFilters.formulaRules.length === 1 ? "" : "s"}, plus ${state.classicFilters.minMomentum}+ momentum, ${state.classicFilters.minRelativeVolume.toFixed(1)}x volume, ${state.classicFilters.maxRisk} max risk, and ${state.classicFilters.minQuality}+ quality.`,
       intentChips: [
         session === "all" ? "Any session" : `${toTitleCase(session)} focus`,
         state.classicFilters.sector === "all" ? "All sectors" : state.classicFilters.sector,
         state.classicFilters.marketCap === "all" ? "Any cap tier" : state.classicFilters.marketCap,
-        `${toTitleCase(state.classicFilters.sortBy === "relativeVolume" ? "volume" : state.classicFilters.sortBy)} sort`,
+        `${state.classicFilters.groupMode} logic`,
       ],
       rationale: [
         `Momentum must stay above ${state.classicFilters.minMomentum}, while risk must stay at or below ${state.classicFilters.maxRisk}.`,
         `${state.classicFilters.minRelativeVolume.toFixed(1)}x relative volume, ${state.classicFilters.minQuality}+ quality, and a ${state.classicFilters.minPrice}-${state.classicFilters.maxPrice} price window are now active.`,
-        `${state.classicFilters.sector === "all" ? "No sector override is active." : `${state.classicFilters.sector} is the only sector allowed.`} ${state.classicFilters.marketCap === "all" ? "All cap tiers can appear." : `${state.classicFilters.marketCap} names only.`} ${state.classicFilters.theme === "all" ? "All themes are allowed." : `${state.classicFilters.theme} is the active theme filter.`}`,
+        `${state.classicFilters.sector === "all" ? "No sector override is active." : `${state.classicFilters.sector} is the only sector allowed.`} ${state.classicFilters.marketCap === "all" ? "All cap tiers can appear." : `${state.classicFilters.marketCap} names only.`} ${state.classicFilters.theme === "all" ? "All themes are allowed." : `${state.classicFilters.theme} is the active theme filter.`} Rules now resolve through ${state.classicFilters.groupMode} logic, and individual blocks can be inverted with NOT.`,
       ],
     },
   });
@@ -1108,6 +1204,9 @@ function render() {
 
   renderAuthState();
   renderFormulaRules();
+  [...document.querySelectorAll(".formula-remove")].forEach(button => {
+    button.innerHTML = "&times;";
+  });
   renderSurfaceState();
   renderPulseStrip(ranked);
   renderScanDigest(ranked);
@@ -1132,12 +1231,18 @@ function renderAuthState() {
     button.classList.toggle("active", button.dataset.authMode === state.authMode);
   });
 
+  elements.accountDrawer.hidden = !state.accountMenuOpen;
+  elements.accountTrigger.setAttribute("aria-expanded", String(state.accountMenuOpen));
+  elements.accountAvatar.textContent = getAccountInitials(state.currentUser);
+
   if (state.currentUser) {
     elements.accountBadge.textContent = "Account";
-    elements.topbarAccount.textContent = state.currentUser.email;
+    elements.topbarAccount.textContent = getAccountLabel(state.currentUser);
     elements.accountCopy.textContent = "This browser is signed in. Watchlists are stored against your account.";
     elements.watchlistNote.textContent =
       "Signed-in mode syncs this watchlist to your account, so it follows you after login.";
+    elements.topbarSignIn.hidden = true;
+    elements.topbarRegister.hidden = true;
     elements.authSubmit.hidden = true;
     elements.authGoogle.hidden = true;
     elements.authLogout.hidden = false;
@@ -1153,6 +1258,8 @@ function renderAuthState() {
       "Create an account to keep watchlists and saved state tied to your profile.";
     elements.watchlistNote.textContent =
       "Guest mode keeps this list in this browser. Sign in to sync it to your account.";
+    elements.topbarSignIn.hidden = false;
+    elements.topbarRegister.hidden = false;
     elements.authSubmit.hidden = false;
     elements.authGoogle.hidden = false;
     elements.authLogout.hidden = true;
@@ -1179,9 +1286,10 @@ function renderFormulaRules() {
   const rules = sanitizeFormulaRules(state.classicFilters.formulaRules);
   state.classicFilters.formulaRules = rules;
 
+  const mode = String(state.classicFilters.groupMode || "AND").toUpperCase();
   elements.formulaSummary.textContent = rules.length
-    ? `${rules.length} rule${rules.length === 1 ? "" : "s"} active. All rules are combined with AND logic in this first version.`
-    : "No formula rules yet. Add a rule to layer custom logic on top of the classic screener.";
+    ? `${rules.length} rule${rules.length === 1 ? "" : "s"} active. Group logic is ${mode}, and each rule can be inverted with NOT.`
+    : "No formula rules yet. Add a rule, choose AND/OR/NAND/NOR, and invert any block with NOT.";
 
   if (!rules.length) {
     elements.formulaRuleList.innerHTML = `<p class="muted">No custom rules yet.</p>`;
@@ -1192,6 +1300,10 @@ function renderFormulaRules() {
     .map(
       rule => `
         <div class="formula-rule" data-rule-id="${rule.id}">
+          <label class="rule-negate">
+            <span class="section-label">NOT</span>
+            <input data-rule-prop="negate" type="checkbox" ${rule.negate ? "checked" : ""} />
+          </label>
           <label>
             <span class="section-label">Field</span>
             <select data-rule-prop="field">
@@ -1224,15 +1336,18 @@ function renderFormulaRules() {
     .join("");
 
   [...elements.formulaRuleList.querySelectorAll("[data-rule-prop]")].forEach(control => {
-    control.addEventListener("input", event => {
+    const eventName = control.matches("select") || control.type === "checkbox" ? "change" : "input";
+    control.addEventListener(eventName, event => {
       const row = event.target.closest("[data-rule-id]");
       const ruleId = row?.dataset.ruleId;
       const prop = event.target.dataset.ruleProp;
-      updateFormulaRule(ruleId, prop, event.target.value);
+      const nextValue = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+      updateFormulaRule(ruleId, prop, nextValue);
     });
   });
 
   [...elements.formulaRuleList.querySelectorAll("[data-remove-rule]")].forEach(button => {
+    button.textContent = "×";
     button.addEventListener("click", () => {
       state.classicFilters.formulaRules = state.classicFilters.formulaRules.filter(
         rule => rule.id !== button.dataset.removeRule,

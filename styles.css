@@ -193,8 +193,8 @@ textarea {
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  color: #d8e3f0;
 }
 
 .auth-tab.active {
@@ -315,7 +315,21 @@ textarea {
   display: flex;
   justify-content: space-between;
   gap: 20px;
-  align-items: end;
+  align-items: start;
+  padding-bottom: 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hero-copy {
+  max-width: 60ch;
+}
+
+.hero-title {
+  margin: 8px 0 0;
+  font-size: clamp(2rem, 4.2vw, 3.7rem);
+  line-height: 0.96;
+  letter-spacing: -0.07em;
+  max-width: 12ch;
 }
 
 .topbar-copy {
@@ -327,25 +341,115 @@ textarea {
 .topbar-actions {
   display: flex;
   gap: 20px;
-  align-items: end;
+  align-items: center;
+  justify-content: end;
+  flex-wrap: wrap;
 }
 
-.account-pill {
+.account-shell {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.auth-quick-row {
+  display: flex;
+  gap: 10px;
+  justify-content: end;
+  align-items: center;
+}
+
+.quick-auth-button {
+  width: auto;
+  min-width: 104px;
+  padding-inline: 16px;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e7eef8;
+}
+
+.account-trigger {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  min-width: 220px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(10, 18, 28, 0.94), rgba(8, 15, 23, 0.82));
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 180ms ease, transform 180ms ease, background-color 180ms ease;
+}
+
+.account-trigger:hover,
+.account-trigger:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(244, 178, 77, 0.3);
+}
+
+.account-trigger-copy {
   display: grid;
   gap: 6px;
-  padding-bottom: 11px;
+  text-align: left;
 }
 
-.account-pill strong {
+.account-trigger-copy strong {
   font-size: 1rem;
   font-weight: 500;
 }
 
+.account-avatar {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(126, 242, 154, 0.88), transparent 20%),
+    linear-gradient(145deg, rgba(244, 178, 77, 0.95), rgba(255, 132, 85, 0.78));
+  color: #081018;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.account-drawer {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 30;
+  width: min(420px, 92vw);
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(9, 17, 27, 0.98), rgba(7, 14, 22, 0.96));
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(22px);
+}
+
+.account-shell:has(.account-drawer:not([hidden])) .account-trigger {
+  border-color: rgba(244, 178, 77, 0.3);
+  background: linear-gradient(180deg, rgba(15, 25, 36, 0.98), rgba(9, 16, 24, 0.94));
+}
+
+.account-drawer-head {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .surface-tab {
   border: 1px solid var(--line);
-  background: transparent;
-  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  color: #dce7f6;
   border-radius: 999px;
+  font-weight: 500;
 }
 
 .surface-tab {
@@ -507,8 +611,9 @@ textarea {
 
 .surface-tab:not(.active),
 .auth-tab:not(.active) {
-  border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.02);
+  color: #d2deed;
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.045);
 }
 
 .query-panel textarea {
@@ -524,8 +629,18 @@ textarea {
   gap: 18px;
 }
 
+.filters-grid .section-label,
+.formula-panel .section-label,
+.preset-panel .section-label {
+  color: #b5c7dc;
+}
+
 .filters-grid label {
   display: block;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.015));
 }
 
 .filters-grid select,
@@ -604,6 +719,27 @@ input[type="range"] {
   align-items: start;
 }
 
+.formula-controls {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+}
+
+.logic-mode-wrap {
+  display: block;
+  min-width: 130px;
+}
+
+.logic-mode-wrap select {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(12, 22, 32, 0.92);
+  color: var(--text);
+}
+
 .formula-head h3 {
   margin: 8px 0 0;
   font-size: 1.05rem;
@@ -624,13 +760,30 @@ input[type="range"] {
 
 .formula-rule {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(120px, 0.8fr) minmax(0, 0.9fr) auto;
+  grid-template-columns: auto minmax(0, 1.15fr) minmax(120px, 0.75fr) minmax(0, 0.9fr) auto;
   gap: 10px;
   align-items: end;
   padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
   background: rgba(6, 14, 22, 0.58);
+}
+
+.rule-negate {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  min-width: 58px;
+  padding: 10px 8px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.rule-negate input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
 }
 
 .formula-rule label {
@@ -655,6 +808,8 @@ input[type="range"] {
   border-radius: 12px;
   background: transparent;
   color: var(--muted);
+  font-size: 1.25rem;
+  line-height: 1;
   cursor: pointer;
   transition: border-color 180ms ease, color 180ms ease, background-color 180ms ease;
 }
@@ -1345,6 +1500,15 @@ input[type="range"] {
     align-items: start;
   }
 
+  .auth-quick-row {
+    justify-content: start;
+  }
+
+  .account-shell {
+    justify-content: flex-start;
+    min-width: 100%;
+  }
+
   .pulse-strip,
   .brief-metrics,
   .filters-grid,
@@ -1394,6 +1558,12 @@ input[type="range"] {
   .formula-head {
     flex-direction: column;
     align-items: start;
+  }
+
+  .formula-controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .formula-rule {
