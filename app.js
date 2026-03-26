@@ -1239,9 +1239,9 @@ function renderAuthState() {
   elements.accountAvatar.textContent = getAccountInitials(state.currentUser);
 
   if (state.currentUser) {
-    elements.accountBadge.textContent = "Account";
+    elements.accountBadge.textContent = getAccountLabel(state.currentUser);
     elements.topbarAccount.textContent = getAccountLabel(state.currentUser);
-    elements.accountCopy.textContent = "This browser is signed in. Watchlists are stored against your account.";
+    elements.accountCopy.textContent = "Signed in on this browser. Watchlists and saved state now follow your profile.";
     elements.watchlistNote.textContent =
       "Signed-in mode syncs this watchlist to your account, so it follows you after login.";
     elements.topbarSignIn.hidden = true;
@@ -1261,7 +1261,7 @@ function renderAuthState() {
       ? "Account active. Watchlist and saved state now follow your profile."
       : state.authMessage;
   } else {
-    elements.accountBadge.textContent = "Guest";
+    elements.accountBadge.textContent = "Guest mode";
     elements.topbarAccount.textContent = "Guest mode";
     elements.accountCopy.textContent =
       "Create an account to keep watchlists and saved state tied to your profile.";
