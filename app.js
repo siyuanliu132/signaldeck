@@ -28,6 +28,7 @@ const state = {
   selectedSymbol: "NVDA",
   authMode: "login",
   currentUser: null,
+  aiWorking: false,
   apiKey: loadStoredApiKey(),
   apiConfig: { hasServerKey: false, provider: "Twelve Data" },
   quoteMap: {},
@@ -51,13 +52,23 @@ const state = {
       riskBias: "Balanced",
       executionNote: "SignalDeck is looking for strong participation with downside control, not blind gap chasing.",
       monitorFocus: "Trend quality, participation, and hold behavior",
+      intentChips: ["Balanced horizon", "Flow-aware", "Trap filter on"],
+      rationale: [
+        "The default scan balances momentum against downside control instead of rewarding the loudest gap.",
+        "Trend quality and relative volume stay high in the score so thin breakouts lose rank quickly.",
+        "This baseline profile is a clean way to demo live names before specializing the horizon.",
+      ],
     },
   }),
   classicFilters: {
     session: "all",
     minMomentum: 68,
     maxRisk: 48,
-    minRelativeVolume: 1.1,
+    minRelativeVolume: 1.5,
+    sector: "all",
+    marketCap: "all",
+    minQuality: 70,
+    sortBy: "score",
   },
 };
 
@@ -69,6 +80,8 @@ const elements = {
   aiQuery: document.getElementById("ai-query"),
   runAi: document.getElementById("run-ai"),
   aiSummary: document.getElementById("ai-summary"),
+  intentChips: document.getElementById("intent-chips"),
+  aiRationale: document.getElementById("ai-rationale"),
   surfaceCaption: document.getElementById("surface-caption"),
   opportunityList: document.getElementById("opportunity-list"),
   resultsTitle: document.getElementById("results-title"),
@@ -84,6 +97,7 @@ const elements = {
   refreshMarket: document.getElementById("refresh-market"),
   watchlistCount: document.getElementById("watchlist-count"),
   watchlistList: document.getElementById("watchlist-list"),
+  watchlistNote: document.getElementById("watchlist-note"),
   accountBadge: document.getElementById("account-badge"),
   accountCopy: document.getElementById("account-copy"),
   authEmail: document.getElementById("auth-email"),
@@ -113,15 +127,25 @@ const elements = {
   momentumFilter: document.getElementById("momentum-filter"),
   riskFilter: document.getElementById("risk-filter"),
   volumeFilter: document.getElementById("volume-filter"),
+  sectorFilter: document.getElementById("sector-filter"),
+  marketCapFilter: document.getElementById("market-cap-filter"),
+  qualityFilter: document.getElementById("quality-filter"),
+  sortFilter: document.getElementById("sort-filter"),
   momentumValue: document.getElementById("momentum-value"),
   riskValue: document.getElementById("risk-value"),
   volumeValue: document.getElementById("volume-value"),
+  qualityValue: document.getElementById("quality-value"),
   applyFilters: document.getElementById("apply-filters"),
   executionHeadline: document.getElementById("execution-headline"),
   executionChip: document.getElementById("execution-chip"),
   executionBody: document.getElementById("execution-body"),
   executionGridList: document.getElementById("execution-grid-list"),
   monitorList: document.getElementById("monitor-list"),
+  spotlightCaption: document.getElementById("spotlight-caption"),
+  spotlightSymbol: document.getElementById("spotlight-symbol"),
+  spotlightTheme: document.getElementById("spotlight-theme"),
+  spotlightMetrics: document.getElementById("spotlight-metrics"),
+  spotlightNote: document.getElementById("spotlight-note"),
 };
 
 bindEvents();
@@ -147,7 +171,7 @@ function bindEvents() {
       if (state.surfaceMode !== "ai") {
         setSurfaceMode("ai");
       }
-      runAiQuery(button.dataset.prompt);
+      handleAiRun(button.dataset.prompt);
     });
   });
 
@@ -159,7 +183,7 @@ function bindEvents() {
     button.addEventListener("click", () => setAuthMode(button.dataset.authMode));
   });
 
-  elements.runAi.addEventListener("click", () => runAiQuery(elements.aiQuery.value.trim()));
+  elements.runAi.addEventListener("click", () => handleAiRun(elements.aiQuery.value.trim()));
   elements.applyFilters.addEventListener("click", applyClassicFilters);
   elements.refreshMarket.addEventListener("click", () => refreshMarketData());
   elements.authSubmit.addEventListener("click", handleAuthSubmit);
@@ -185,6 +209,25 @@ function bindEvents() {
   elements.volumeFilter.addEventListener("input", event => {
     elements.volumeValue.textContent = `${(event.target.value / 10).toFixed(1)}x`;
   });
+  elements.qualityFilter.addEventListener("input", event => {
+    elements.qualityValue.textContent = event.target.value;
+  });
+}
+
+async function handleAiRun(nextQuery) {
+  const query = (nextQuery || "").trim();
+  if (!query) {
+    elements.aiSummary.textContent = "Enter a prompt so SignalDeck can build a scan profile.";
+    return;
+  }
+
+  elements.aiQuery.value = query;
+  state.aiWorking = true;
+  renderSurfaceState();
+  await wait(420);
+  runAiQuery(query);
+  state.aiWorking = false;
+  render();
 }
 
 async function fetchSession() {
@@ -335,25 +378,36 @@ function applyClassicFilters() {
     minMomentum: Number(elements.momentumFilter.value),
     maxRisk: Number(elements.riskFilter.value),
     minRelativeVolume: Number(elements.volumeFilter.value) / 10,
+    sector: elements.sectorFilter.value,
+    marketCap: elements.marketCapFilter.value,
+    minQuality: Number(elements.qualityFilter.value),
+    sortBy: elements.sortFilter.value,
   };
 
   state.profile = createProfile({
     label: "Classic screener",
-    description: "Classic screen ranking names by conviction, liquidity, and controlled downside.",
+    description: "Classic screen ranking names by conviction, liquidity, structure, and controlled downside.",
     title: "Classic screener results",
     filter: stock => {
       const matchesSession =
         state.classicFilters.session === "all" || stock.session === state.classicFilters.session;
+      const matchesSector =
+        state.classicFilters.sector === "all" || stock.sector === state.classicFilters.sector;
+      const matchesMarketCap =
+        state.classicFilters.marketCap === "all" || stock.marketCap === state.classicFilters.marketCap;
       return (
         matchesSession &&
+        matchesSector &&
+        matchesMarketCap &&
         stock.momentum >= state.classicFilters.minMomentum &&
         stock.risk <= state.classicFilters.maxRisk &&
-        stock.relativeVolume >= state.classicFilters.minRelativeVolume
+        stock.relativeVolume >= state.classicFilters.minRelativeVolume &&
+        stock.quality >= state.classicFilters.minQuality
       );
     },
     scoreConfig: {
-      momentum: 0.95,
-      safety: 1.1,
+      momentum: state.classicFilters.sortBy === "momentum" ? 1.14 : 0.96,
+      safety: state.classicFilters.maxRisk <= 36 ? 1.2 : 1.08,
       carry: session === "intraday" ? 0.55 : 1,
       sessionBoost: session === "all" ? null : session,
     },
@@ -376,8 +430,19 @@ function applyClassicFilters() {
               : "Adaptive",
       riskBias: state.classicFilters.maxRisk <= 30 ? "Conservative" : "Balanced",
       executionNote:
-        "The classic screen lets the operator directly control the score through momentum, risk, and volume thresholds.",
-      monitorFocus: `${state.classicFilters.minMomentum}+ momentum, ${state.classicFilters.minRelativeVolume.toFixed(1)}x volume, ${state.classicFilters.maxRisk} max risk`,
+        "The classic screen lets the operator directly control the score through momentum, risk, sector, quality, and liquidity thresholds.",
+      monitorFocus: `${state.classicFilters.minMomentum}+ momentum, ${state.classicFilters.minRelativeVolume.toFixed(1)}x volume, ${state.classicFilters.maxRisk} max risk, ${state.classicFilters.minQuality}+ quality`,
+      intentChips: [
+        session === "all" ? "Any session" : `${toTitleCase(session)} focus`,
+        state.classicFilters.sector === "all" ? "All sectors" : state.classicFilters.sector,
+        state.classicFilters.marketCap === "all" ? "Any cap tier" : state.classicFilters.marketCap,
+        `${toTitleCase(state.classicFilters.sortBy === "relativeVolume" ? "volume" : state.classicFilters.sortBy)} sort`,
+      ],
+      rationale: [
+        `Momentum must stay above ${state.classicFilters.minMomentum}, while risk must stay at or below ${state.classicFilters.maxRisk}.`,
+        `${state.classicFilters.minRelativeVolume.toFixed(1)}x relative volume and ${state.classicFilters.minQuality}+ quality are now required to surface.`,
+        `${state.classicFilters.sector === "all" ? "No sector override is active." : `${state.classicFilters.sector} is the only sector allowed.`} ${state.classicFilters.marketCap === "all" ? "All cap tiers can appear." : `${state.classicFilters.marketCap} names only.`}`,
+      ],
     },
   });
 
@@ -399,11 +464,18 @@ function runAiQuery(query) {
   let scoreConfig = { momentum: 1, safety: 1, carry: 0.6, sessionBoost: null };
   let filter = () => true;
   let title = "Top setups right now";
+  let intentChips = ["Balanced horizon", "Flow-aware", "Trap filter on"];
+  const rationale = [
+    "SignalDeck starts by reading your requested time horizon so the board favors the right holding period.",
+    "Risk posture is then adjusted to penalize unstable spikes and reward cleaner structure.",
+    "Participation remains a core input so false moves on weak volume lose rank quickly.",
+  ];
 
   if (wantsLowRisk) {
     label = "Safety-biased";
     description = "Prioritizing stable liquidity, cleaner continuation, and lower trap risk.";
     scoreConfig = { momentum: 0.82, safety: 1.35, carry: 0.9, sessionBoost: null };
+    intentChips = ["Safer setups", "Liquidity-first", "Downside control"];
   }
 
   if (wantsIntraday) {
@@ -414,6 +486,9 @@ function runAiQuery(query) {
     scoreConfig = { momentum: 1.25, safety: wantsTrapProtection ? 1.2 : 0.9, carry: 0.45, sessionBoost: "intraday" };
     filter = stock => stock.session === "intraday" || stock.quality >= 82;
     title = "Intraday opportunities";
+    intentChips = wantsLowRisk
+      ? ["Intraday horizon", "Quality bias", "Trap control"]
+      : ["Intraday horizon", "Momentum-first", "Open-drive bias"];
   }
 
   if (wantsOvernight) {
@@ -422,6 +497,7 @@ function runAiQuery(query) {
     scoreConfig = { momentum: 0.78, safety: 1.3, carry: 1.28, sessionBoost: "overnight" };
     filter = stock => stock.session !== "intraday" || stock.carry >= 72;
     title = "Overnight candidates";
+    intentChips = ["Overnight hold", "Carry strength", "Cleaner close"];
   }
 
   if (wantsSwing) {
@@ -430,15 +506,20 @@ function runAiQuery(query) {
     scoreConfig = { momentum: 0.9, safety: 1.18, carry: 1.15, sessionBoost: "swing" };
     filter = stock => stock.session === "swing" || stock.carry >= 76;
     title = "Swing candidates";
+    intentChips = ["Swing horizon", "Trend continuity", "Quality over noise"];
   }
 
   if (wantsVolume) {
     scoreConfig.momentum += 0.08;
     description = `${description} Relative volume is weighted more heavily.`;
+    intentChips = [...intentChips, "Volume confirmation"];
+    rationale[2] = "Relative volume got an extra boost, so names without real participation should drop behind cleaner tape.";
   }
 
   if (wantsTrapProtection) {
     scoreConfig.safety += 0.14;
+    intentChips = [...intentChips, "Trap penalty"];
+    rationale[1] = "Trap protection is active, so wide-opening spikes and poor hold behavior get penalized more aggressively.";
   }
 
   const window =
@@ -483,6 +564,8 @@ function runAiQuery(query) {
         : wantsVolume
           ? "Relative volume is weighted more heavily in this scan."
           : "Scanner is balancing conviction, participation, and risk.",
+      intentChips: intentChips.slice(0, 4),
+      rationale,
     },
   });
 
@@ -722,7 +805,7 @@ function getRankedUniverse() {
       const haystack = `${stock.symbol} ${stock.name} ${stock.theme} ${stock.sector}`.toLowerCase();
       return haystack.includes(state.searchTerm);
     })
-    .sort((left, right) => right.score - left.score);
+    .sort(compareRankedStocks);
 }
 
 function render() {
@@ -732,10 +815,13 @@ function render() {
   }
 
   renderAuthState();
+  renderSurfaceState();
   renderPulseStrip(ranked);
+  renderScanDigest(ranked);
   renderWatchlist();
   renderBrief(ranked);
   renderOpportunityList(ranked);
+  renderSpotlight(ranked);
   renderInspector(ranked);
   renderExecutionMap(ranked);
   renderConnectionState();
@@ -757,6 +843,8 @@ function renderAuthState() {
     elements.accountBadge.textContent = "Account";
     elements.topbarAccount.textContent = state.currentUser.email;
     elements.accountCopy.textContent = "This browser is signed in. Watchlists are stored against your account.";
+    elements.watchlistNote.textContent =
+      "Signed-in mode syncs this watchlist to your account, so it follows you after login.";
     elements.authSubmit.hidden = true;
     elements.authGoogle.hidden = true;
     elements.authLogout.hidden = false;
@@ -770,6 +858,8 @@ function renderAuthState() {
     elements.topbarAccount.textContent = "Guest mode";
     elements.accountCopy.textContent =
       "Create an account to keep watchlists and saved state tied to your profile.";
+    elements.watchlistNote.textContent =
+      "Guest mode keeps this list in this browser. Sign in to sync it to your account.";
     elements.authSubmit.hidden = false;
     elements.authGoogle.hidden = false;
     elements.authLogout.hidden = true;
@@ -782,6 +872,14 @@ function renderAuthState() {
   }
 
   elements.authMessage.textContent = state.authMessage;
+}
+
+function renderSurfaceState() {
+  elements.runAi.disabled = state.aiWorking;
+  elements.runAi.textContent = state.aiWorking ? "Parsing intent..." : "Run AI scan";
+  elements.aiSummary.textContent = state.aiWorking
+    ? "Breaking your prompt into horizon, risk posture, and participation signals."
+    : `${state.profile.label} profile active. ${state.profile.description}`;
 }
 
 function renderConnectionState() {
@@ -816,22 +914,21 @@ function renderConnectionState() {
 }
 
 function renderPulseStrip(ranked) {
-  const positiveBreadth = ranked.filter(stock => stock.changePct > 0).length;
-  const averageScore = ranked.length
-    ? Math.round(ranked.reduce((total, stock) => total + stock.score, 0) / ranked.length)
-    : 0;
-  const bestRelativeVolume = ranked.length
-    ? `${Math.max(...ranked.map(stock => stock.relativeVolume)).toFixed(1)}x`
+  const liveUniverse = getLiveUniverse().map(stock => ({ ...stock, score: state.profile.score(stock) }));
+  const topLive = [...liveUniverse].sort(compareRankedStocks)[0];
+  const positiveBreadth = liveUniverse.filter(stock => stock.changePct > 0).length;
+  const bestRelativeVolume = liveUniverse.length
+    ? `${Math.max(...liveUniverse.map(stock => stock.relativeVolume)).toFixed(1)}x`
     : "--";
-  const averageRisk = ranked.length
-    ? `${Math.round(ranked.reduce((total, stock) => total + stock.risk, 0) / ranked.length)} / 100`
+  const averageRisk = liveUniverse.length
+    ? `${Math.round(liveUniverse.reduce((total, stock) => total + stock.risk, 0) / liveUniverse.length)} / 100`
     : "--";
 
   const items = [
-    { label: "Scanner profile", value: state.profile.label, note: "Free-data sample universe" },
-    { label: "Matches", value: String(ranked.length).padStart(2, "0"), note: `${positiveBreadth} names green on session` },
-    { label: "Average conviction", value: averageScore || "--", note: `Risk average ${averageRisk}` },
-    { label: "Peak rel. volume", value: bestRelativeVolume, note: "Highest participation in scan" },
+    { label: "Scanner profile", value: state.profile.label, note: "Prompt-driven ranking logic is active" },
+    { label: "Live universe", value: String(liveUniverse.length || "--"), note: `${positiveBreadth} names green on session` },
+    { label: "Exact matches", value: String(ranked.length), note: ranked.length ? `${ranked[0].symbol} leads the current scan` : "No exact fit yet, widen the screen" },
+    { label: "Strongest tape", value: topLive ? topLive.symbol : "--", note: topLive ? `${bestRelativeVolume} peak participation, risk avg ${averageRisk}` : "Waiting for live quotes" },
   ];
 
   elements.pulseStrip.innerHTML = items
@@ -895,8 +992,26 @@ async function syncWatchlistFromAccount() {
   state.watchlist = Array.isArray(watchlist) ? watchlist : [];
 }
 
-function renderBrief(ranked) {
+function renderScanDigest(ranked) {
+  const chips = state.profile.meta.intentChips || [state.profile.label];
+  const rationale = state.profile.meta.rationale || [];
   const top = ranked[0];
+
+  elements.intentChips.innerHTML = chips.length
+    ? chips.map(chip => `<span class="intent-chip">${chip}</span>`).join("")
+    : `<span class="intent-chip muted-chip">Waiting for a scan profile</span>`;
+
+  const lines = [
+    ...(rationale.length ? rationale : ["SignalDeck will explain the active scan logic here."]),
+    top ? `${top.symbol} is currently the cleanest live expression of this profile.` : "Once live names rank, the board will name the strongest expression here.",
+  ];
+
+  elements.aiRationale.innerHTML = lines.map(line => `<li>${line}</li>`).join("");
+}
+
+function renderBrief(ranked) {
+  const liveUniverse = getLiveUniverse().map(stock => ({ ...stock, score: state.profile.score(stock) }));
+  const top = ranked[0] || [...liveUniverse].sort(compareRankedStocks)[0];
   elements.briefHeadline.textContent = top
     ? `${state.profile.label} is highlighting ${top.symbol} and other clean setups.`
     : "SignalDeck is waiting for real market data before ranking setups.";
@@ -936,18 +1051,46 @@ function renderBrief(ranked) {
 
 function renderOpportunityList(ranked) {
   elements.resultsTitle.textContent = state.profile.title;
-  elements.resultsMeta.textContent = `${ranked.length} matches`;
+  elements.resultsMeta.textContent = `${ranked.length} exact matches`;
 
   if (!ranked.length) {
+    const nearMisses = getLiveUniverse()
+      .map(stock => ({ ...stock, score: state.profile.score(stock) }))
+      .sort(compareRankedStocks)
+      .slice(0, 3);
+
     elements.opportunityList.innerHTML = `
-      <div class="opportunity-row">
-        <span></span>
+      <div class="opportunity-empty">
         <div class="ticker-meta">
-          <strong>No live matches</strong>
-          <span>${state.loadError || "Connect a market-data key or widen the filters."}</span>
+          <strong>No exact matches yet</strong>
+          <span>${state.loadError || "The current screen is strict. Review the closest live names below or widen the filters."}</span>
+        </div>
+        <div class="near-miss-list">
+          ${nearMisses.length
+            ? nearMisses
+                .map(
+                  stock => `
+                    <button class="near-miss-chip" data-symbol="${stock.symbol}">
+                      <strong>${stock.symbol}</strong>
+                      <span>${stock.score} score · ${stock.relativeVolume.toFixed(1)}x rel vol</span>
+                    </button>
+                  `,
+                )
+                .join("")
+            : `<p class="muted">Connect a market-data key or wait for the next refresh.</p>`}
         </div>
       </div>
     `;
+    [...elements.opportunityList.querySelectorAll("[data-symbol]")].forEach(button => {
+      button.addEventListener("click", async () => {
+        state.selectedSymbol = button.dataset.symbol;
+        if (!state.historyMap[state.selectedSymbol]) {
+          await loadHistory(state.selectedSymbol);
+        } else {
+          render();
+        }
+      });
+    });
     return;
   }
 
@@ -1124,6 +1267,45 @@ function renderExecutionMap(ranked) {
   elements.monitorList.innerHTML = monitorItems.map(item => `<li>${item}</li>`).join("");
 }
 
+function renderSpotlight(ranked) {
+  const lead =
+    ranked[0] ||
+    getLiveUniverse()
+      .map(stock => ({ ...stock, score: state.profile.score(stock) }))
+      .sort(compareRankedStocks)[0];
+
+  if (!lead) {
+    elements.spotlightCaption.textContent = "Awaiting data";
+    elements.spotlightSymbol.textContent = "--";
+    elements.spotlightTheme.textContent =
+      "The spotlight card will fill once the scanner has a live board to rank.";
+    elements.spotlightMetrics.innerHTML = "";
+    elements.spotlightNote.textContent =
+      "Live data drives this card, so it becomes much more informative after the first successful market refresh.";
+    return;
+  }
+
+  elements.spotlightCaption.textContent = ranked.length ? "Lead setup" : "Closest live fit";
+  elements.spotlightSymbol.textContent = lead.symbol;
+  elements.spotlightTheme.textContent = `${lead.theme} in ${lead.sector.toLowerCase()} is currently giving the cleanest expression of this scan.`;
+  elements.spotlightMetrics.innerHTML = [
+    ["Conviction", `${lead.score}`],
+    ["Trend quality", `${lead.quality}`],
+    ["Relative volume", `${lead.relativeVolume.toFixed(1)}x`],
+    ["Session change", `${formatSigned(lead.changePct)}%`],
+  ]
+    .map(
+      ([label, value]) => `
+        <div>
+          <dt>${label}</dt>
+          <dd>${value}</dd>
+        </div>
+      `,
+    )
+    .join("");
+  elements.spotlightNote.textContent = `${lead.symbol} is surfacing because ${lead.headline.toLowerCase()} ${lead.risk <= 30 ? "Risk is still relatively contained for this setup." : "Risk is elevated, so confirmation matters before aggressive sizing."}`;
+}
+
 function renderSparkline(history) {
   if (!history.length) {
     elements.sparkline.innerHTML = `
@@ -1171,6 +1353,19 @@ function toggleWatchlist(symbol) {
   }
 
   persistWatchlist();
+}
+
+function compareRankedStocks(left, right) {
+  if (state.profile.label === "Classic screener") {
+    const sortBy = state.classicFilters.sortBy;
+    if (sortBy === "risk") {
+      return left.risk - right.risk || right.score - left.score;
+    }
+
+    return (right[sortBy] ?? right.score) - (left[sortBy] ?? left.score) || right.score - left.score;
+  }
+
+  return right.score - left.score;
 }
 
 async function persistWatchlist() {
@@ -1238,6 +1433,12 @@ function saveWatchlist(watchlist) {
   } catch (error) {
     console.warn("Unable to persist watchlist", error);
   }
+}
+
+function wait(ms) {
+  return new Promise(resolve => {
+    window.setTimeout(resolve, ms);
+  });
 }
 
 function numberOrNull(value) {

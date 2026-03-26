@@ -100,8 +100,8 @@
             <p class="section-label">Watchlist</p>
             <span class="mono" id="watchlist-count">0 saved</span>
           </div>
-          <p class="muted small-note">
-            Local to this browser for now. Shared cloud accounts are not enabled yet.
+          <p class="muted small-note" id="watchlist-note">
+            Guest mode keeps this list in this browser. Sign in to sync it to your account.
           </p>
           <div class="watchlist-list" id="watchlist-list"></div>
         </section>
@@ -161,6 +161,16 @@ Find intraday names that can open strong, keep trend quality through the session
                 <button class="primary-button" id="run-ai">Run AI scan</button>
                 <p class="muted" id="ai-summary">Balanced momentum profile with trap-risk penalty enabled.</p>
               </div>
+              <div class="ai-digest">
+                <article class="digest-card">
+                  <p class="section-label">Profile signals</p>
+                  <div class="intent-chip-row" id="intent-chips"></div>
+                </article>
+                <article class="digest-card">
+                  <p class="section-label">Why the scan shifted</p>
+                  <ul class="digest-list" id="ai-rationale"></ul>
+                </article>
+              </div>
             </section>
 
             <section class="filters-panel mode-panel" data-panel="classic">
@@ -191,6 +201,45 @@ Find intraday names that can open strong, keep trend quality through the session
                   <span class="section-label">Minimum relative volume</span>
                   <input id="volume-filter" type="range" min="10" max="30" value="15" />
                   <span class="range-value" id="volume-value">1.5x</span>
+                </label>
+
+                <label>
+                  <span class="section-label">Sector</span>
+                  <select id="sector-filter">
+                    <option value="all">All sectors</option>
+                    <option value="Semiconductors">Semiconductors</option>
+                    <option value="Software">Software</option>
+                    <option value="Internet">Internet</option>
+                    <option value="Healthcare">Healthcare</option>
+                    <option value="Financials">Financials</option>
+                    <option value="Consumer">Consumer</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span class="section-label">Market cap</span>
+                  <select id="market-cap-filter">
+                    <option value="all">All caps</option>
+                    <option value="Mega cap">Mega cap</option>
+                    <option value="Large cap">Large cap</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span class="section-label">Minimum quality</span>
+                  <input id="quality-filter" type="range" min="55" max="95" value="70" />
+                  <span class="range-value" id="quality-value">70</span>
+                </label>
+
+                <label>
+                  <span class="section-label">Sort by</span>
+                  <select id="sort-filter">
+                    <option value="score">Best score</option>
+                    <option value="momentum">Highest momentum</option>
+                    <option value="quality">Highest quality</option>
+                    <option value="relativeVolume">Highest relative volume</option>
+                    <option value="risk">Lowest risk</option>
+                  </select>
                 </label>
               </div>
               <div class="action-row">
@@ -226,6 +275,30 @@ Find intraday names that can open strong, keep trend quality through the session
               <p class="mono" id="weight-caption">Live profile</p>
             </div>
             <div class="weight-bars" id="weight-bars"></div>
+          </section>
+
+          <section class="spotlight-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Scanner spotlight</p>
+                <h2>Best expression right now</h2>
+              </div>
+              <p class="mono" id="spotlight-caption">Lead setup</p>
+            </div>
+            <div class="spotlight-visual">
+              <div class="spotlight-orb"></div>
+              <div class="spotlight-copy">
+                <p class="section-label">Lead symbol</p>
+                <h3 id="spotlight-symbol">NVDA</h3>
+                <p class="muted" id="spotlight-theme">
+                  AI infrastructure strength with cleaner continuation than the rest of the board.
+                </p>
+              </div>
+            </div>
+            <dl class="spotlight-metrics" id="spotlight-metrics"></dl>
+            <p class="muted" id="spotlight-note">
+              SignalDeck will surface a richer read here once the scanner has ranked live names.
+            </p>
           </section>
         </section>
 
