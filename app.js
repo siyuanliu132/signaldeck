@@ -392,6 +392,14 @@ const SCREEN_DEFINITIONS = [
 ];
 
 const SEARCH_ALIASES = {
+  sp500: "sp500",
+  "s&p 500": "sp500",
+  "标普500": "sp500",
+  "标普 500": "sp500",
+  nasdaq100: "nasdaq100",
+  "nasdaq 100": "nasdaq100",
+  "纳指100": "nasdaq100",
+  "纳斯达克100": "nasdaq100",
   semiconductors: "Semiconductors",
   半导体: "Semiconductors",
   software: "Software",
@@ -421,6 +429,10 @@ const REFRESH_INTERVAL_MS = 1000 * 60 * 4;
 const HISTORY_INTERVAL = "15min";
 const HISTORY_POINTS = 24;
 const LOCAL_SEARCH_ALIASES = {
+  标普500: "sp500",
+  "标普 500": "sp500",
+  纳指100: "nasdaq100",
+  "纳斯达克100": "nasdaq100",
   半导体: "Semiconductors",
   软件: "Software",
   互联网: "Internet",
@@ -504,6 +516,8 @@ const state = {
   paletteQuery: "",
   boardFilterTerm: "",
   universeFilterTerm: "",
+  universeSourceFilter: "all",
+  universeSectorFilter: "all",
   fieldLibrarySearch: "",
   fieldLibraryNotice: "",
   customMetricDraft: {
@@ -582,6 +596,8 @@ const elements = {
   watchlistScreenList: document.getElementById("watchlist-screen-list"),
   universeMeta: document.getElementById("universe-meta"),
   universeSearch: document.getElementById("universe-search"),
+  universeSectorFilter: document.getElementById("universe-sector-filter"),
+  universeSourceFilters: [...document.querySelectorAll("[data-universe-source]")],
   universeList: document.getElementById("universe-list"),
   accountBadge: document.getElementById("account-badge"),
   accountCopy: document.getElementById("account-copy"),
@@ -683,6 +699,7 @@ initialize();
 async function initialize() {
   elements.apiKeyInput.value = state.apiKey;
   populateClassicFilterOptions();
+  populateUniverseControls();
   syncClassicControls();
   runAiQuery(elements.aiQuery.value.trim());
   render();
@@ -725,6 +742,15 @@ function populateClassicFilterOptions() {
     trackedUniverse.map(stock => stock.theme),
     "All themes",
     state.classicFilters.theme,
+  );
+}
+
+function populateUniverseControls() {
+  setSelectOptions(
+    elements.universeSectorFilter,
+    trackedUniverse.map(stock => stock.sector),
+    "All sectors",
+    state.universeSectorFilter,
   );
 }
 
@@ -830,6 +856,16 @@ function bindEvents() {
   elements.universeSearch.addEventListener("input", event => {
     state.universeFilterTerm = event.target.value.trim().toLowerCase();
     render();
+  });
+  elements.universeSectorFilter.addEventListener("change", event => {
+    state.universeSectorFilter = event.target.value;
+    render();
+  });
+  elements.universeSourceFilters.forEach(button => {
+    button.addEventListener("click", () => {
+      state.universeSourceFilter = button.dataset.universeSource || "all";
+      render();
+    });
   });
   elements.topbarSearch.addEventListener("focus", () => {
     state.paletteOpen = true;
@@ -1831,6 +1867,23 @@ function formatScoreCell(value) {
   return value == null ? "--" : String(value);
 }
 
+function getSourceTagLabel(source) {
+  if (source === "sp500") {
+    return "S&P 500";
+  }
+  if (source === "nasdaq100") {
+    return "Nasdaq 100";
+  }
+  return "All large caps";
+}
+
+function matchesSourceTag(stock, source) {
+  if (source === "all") {
+    return true;
+  }
+  return Array.isArray(stock.sourceTags) && stock.sourceTags.includes(source);
+}
+
 function getCompactConnectionCopy(message) {
   const text = String(message || "").trim();
   if (!text) {
@@ -1912,6 +1965,20 @@ function getCommandPaletteItems(query = "") {
       label: preset.label,
       description: preset.summary,
       keywords: [preset.label, preset.summary, key, ...Object.keys(SEARCH_ALIASES).filter(alias => SEARCH_ALIASES[alias] === key)].join(" ").toLowerCase(),
+    });
+  });
+
+  [
+    { value: "sp500", label: "S&P 500", description: "Browse the S&P 500 catalog" },
+    { value: "nasdaq100", label: "Nasdaq 100", description: "Browse the Nasdaq 100 catalog" },
+  ].forEach(source => {
+    items.push({
+      id: `source-${source.value}`,
+      type: "source",
+      value: source.value,
+      label: source.label,
+      description: source.description,
+      keywords: [source.label, source.value, ...Object.keys(SEARCH_ALIASES).filter(alias => SEARCH_ALIASES[alias] === source.value)].join(" ").toLowerCase(),
     });
   });
 
@@ -2002,8 +2069,21 @@ function applyPaletteAction(item) {
   }
 
   if (item.type === "sector" || item.type === "theme") {
-    state.universeFilterTerm = item.value.toLowerCase();
-    elements.universeSearch.value = item.value;
+    if (item.type === "sector") {
+      state.universeSectorFilter = item.value;
+      elements.universeSectorFilter.value = item.value;
+      state.universeFilterTerm = "";
+      elements.universeSearch.value = "";
+    } else {
+      state.universeFilterTerm = item.value.toLowerCase();
+      elements.universeSearch.value = item.value;
+    }
+    setCurrentScreen("universe");
+    return;
+  }
+
+  if (item.type === "source") {
+    state.universeSourceFilter = item.value;
     setCurrentScreen("universe");
   }
 }
@@ -2675,12 +2755,14 @@ function getUniverseResults() {
             score: null,
           };
     })
+    .filter(stock => matchesSourceTag(stock, state.universeSourceFilter))
+    .filter(stock => state.universeSectorFilter === "all" || stock.sector === state.universeSectorFilter)
     .filter(stock => {
       if (!state.universeFilterTerm) {
         return true;
       }
 
-      const haystack = `${stock.symbol} ${stock.name} ${stock.theme} ${stock.sector} ${stock.session}`.toLowerCase();
+      const haystack = `${stock.symbol} ${stock.name} ${stock.theme} ${stock.sector} ${stock.session} ${(stock.sourceTags || []).join(" ")}`.toLowerCase();
       return haystack.includes(state.universeFilterTerm);
     })
     .sort((left, right) => left.symbol.localeCompare(right.symbol));
@@ -2754,6 +2836,10 @@ function render() {
   elements.resultsSurface.dataset.view = state.resultsView;
   elements.symbolSearch.value = state.boardFilterTerm;
   elements.universeSearch.value = state.universeFilterTerm;
+  elements.universeSectorFilter.value = state.universeSectorFilter;
+  elements.universeSourceFilters.forEach(button => {
+    button.classList.toggle("active", button.dataset.universeSource === state.universeSourceFilter);
+  });
   elements.viewTable.classList.toggle("active", state.resultsView === "table");
   elements.viewCards.classList.toggle("active", state.resultsView === "cards");
   elements.lastUpdated.textContent = state.lastUpdatedAt
@@ -3326,7 +3412,9 @@ function renderWatchlist() {
 }
 
 function renderUniverseScreen(universe) {
-  elements.universeMeta.textContent = `${universe.length} name${universe.length === 1 ? "" : "s"}`;
+  const sourceLabel = getSourceTagLabel(state.universeSourceFilter);
+  const sectorLabel = state.universeSectorFilter === "all" ? "All sectors" : state.universeSectorFilter;
+  elements.universeMeta.textContent = `${universe.length} name${universe.length === 1 ? "" : "s"} · ${sourceLabel} · ${sectorLabel}`;
 
   if (!universe.length) {
     elements.universeList.innerHTML = `
@@ -3347,7 +3435,7 @@ function renderUniverseScreen(universe) {
           <span class="symbol-cell"><strong>${stock.symbol}</strong></span>
           <span>${stock.name}</span>
           <span>${stock.sector}</span>
-          <span>${stock.theme}</span>
+          <span>${stock.theme}<small class="row-tag">${(stock.sourceTags || []).map(getSourceTagLabel).join(" · ")}</small></span>
           <span>${formatPriceCell(stock.price)}</span>
           <span class="${stock.changePct == null ? "" : stock.changePct >= 0 ? "positive" : "negative"}">${formatPercentCell(stock.changePct)}</span>
           <span>${formatRelativeVolumeCell(stock.relativeVolume)}</span>

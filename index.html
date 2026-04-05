@@ -452,16 +452,16 @@ Find intraday names that can open strong, keep trend quality through the session
               <div class="screen-header">
                 <div>
                   <p class="section-label">Universe</p>
-                  <h2>Browse the full tracked universe</h2>
+                  <h2>Browse the large-cap market browser</h2>
                 </div>
-                <p class="muted">Use this screen as the direct destination for symbol, sector, theme, and preset jumps.</p>
+                <p class="muted">Search across the merged S&amp;P 500 and Nasdaq 100 catalog, then drill into symbols on demand.</p>
               </div>
 
               <section class="board-panel universe-panel">
                 <div class="panel-header board-header">
                   <div>
                     <p class="section-label">Universe board</p>
-                    <h2>Every live name in the current demo feed</h2>
+                    <h2>Large-cap catalog with on-demand quote loading</h2>
                   </div>
                   <p class="mono" id="universe-meta">0 names</p>
                 </div>
@@ -471,6 +471,19 @@ Find intraday names that can open strong, keep trend quality through the session
                     <span class="section-label">Universe filter</span>
                     <input id="universe-search" type="search" placeholder="Filter by symbol, company, sector, or theme" />
                   </label>
+                  <div class="universe-quick-filters">
+                    <div class="universe-source-switch" role="tablist" aria-label="Universe source">
+                      <button class="universe-source-chip active" data-universe-source="all" type="button">All large caps</button>
+                      <button class="universe-source-chip" data-universe-source="sp500" type="button">S&amp;P 500</button>
+                      <button class="universe-source-chip" data-universe-source="nasdaq100" type="button">Nasdaq 100</button>
+                    </div>
+                    <label class="search-wrap compact-select" for="universe-sector-filter">
+                      <span class="section-label">Sector</span>
+                      <select id="universe-sector-filter">
+                        <option value="all">All sectors</option>
+                      </select>
+                    </label>
+                  </div>
                 </div>
 
                 <div class="opportunity-head universe-head">

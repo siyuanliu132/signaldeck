@@ -2382,6 +2382,57 @@ select option {
   align-items: center;
 }
 
+.universe-quick-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.universe-source-switch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.universe-source-chip {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.022);
+  color: var(--muted);
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.universe-source-chip:hover,
+.universe-source-chip.active {
+  border-color: rgba(242, 169, 80, 0.3);
+  background: rgba(242, 169, 80, 0.08);
+  color: var(--text);
+}
+
+.compact-select {
+  flex: 0 0 220px;
+}
+
+.compact-select select {
+  width: 100%;
+  margin-top: 10px;
+  padding: 13px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  outline: 0;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+}
+
+.compact-select select:focus {
+  border-color: rgba(242, 169, 80, 0.4);
+  box-shadow: 0 0 0 4px rgba(242, 169, 80, 0.08);
+}
+
 .universe-head,
 .universe-row {
   grid-template-columns: minmax(78px, 0.8fr) minmax(160px, 1.4fr) minmax(128px, 1fr) minmax(140px, 1.1fr) repeat(4, minmax(84px, 0.8fr));
@@ -2405,6 +2456,15 @@ select option {
 .ticker-meta span {
   white-space: normal;
   overflow-wrap: break-word;
+}
+
+.row-tag {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted-2);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .settings-grid {
