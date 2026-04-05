@@ -675,6 +675,184 @@ input[type="range"] {
   color: var(--muted);
 }
 
+.filters-grid-note {
+  margin: 12px 0 0;
+}
+
+.formula-tab-row {
+  display: inline-flex;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+  margin: 18px 0;
+}
+
+.formula-tab {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 10px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.formula-tab.active {
+  background: rgba(244, 178, 77, 0.16);
+  color: var(--text);
+}
+
+.formula-view {
+  display: none;
+}
+
+.formula-view.active {
+  display: block;
+}
+
+.metric-builder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.metric-builder-footer {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.metric-deps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.custom-metric-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.metric-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: start;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.metric-item p,
+.metric-item span {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.metric-item-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.field-library-card {
+  width: min(980px, calc(100vw - 40px));
+  max-height: min(82vh, 920px);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+}
+
+.field-library-groups {
+  display: grid;
+  gap: 18px;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.field-group {
+  display: grid;
+  gap: 10px;
+}
+
+.field-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field-list {
+  display: grid;
+  gap: 8px;
+}
+
+.field-row {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  text-align: left;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+
+.field-row.locked {
+  opacity: 0.82;
+}
+
+.field-row.locked:hover {
+  transform: none;
+}
+
+.field-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.field-copy p,
+.field-copy span {
+  margin: 0;
+  color: var(--muted);
+}
+
+.field-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.availability-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-family: "IBM Plex Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.availability-badge.live {
+  background: rgba(121, 236, 168, 0.12);
+  color: var(--positive);
+}
+
+.availability-badge.derived {
+  background: rgba(244, 178, 77, 0.12);
+  color: var(--accent);
+}
+
+.availability-badge.locked {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+}
+
 .action-row {
   display: flex;
   align-items: flex-start;
@@ -1307,6 +1485,11 @@ select option {
     grid-template-columns: 1fr 1fr;
   }
 
+  .metric-builder,
+  .metric-item {
+    grid-template-columns: 1fr;
+  }
+
   .rule-value-stack.range {
     grid-template-columns: 1fr;
   }
@@ -1361,5 +1544,9 @@ select option {
 
   .modal-card {
     padding: 18px;
+  }
+
+  .field-library-card {
+    width: min(100vw - 24px, 980px);
   }
 }

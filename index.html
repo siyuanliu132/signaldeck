@@ -254,12 +254,15 @@ Find intraday names that can open strong, keep trend quality through the session
                     </select>
                   </label>
                 </div>
+                <p class="muted small-note filters-grid-note">
+                  Core thresholds stay visible here. Broader screen logic, derived fields, and locked field discovery live in the field library and formula builder below.
+                </p>
 
                 <section class="formula-panel">
                   <div class="formula-head">
                     <div>
                       <p class="section-label">Formula builder</p>
-                      <h3>Stack real supported fields with explicit logic.</h3>
+                      <h3>Stack supported fields or build synthetic metrics from them.</h3>
                     </div>
                     <div class="formula-controls">
                       <label class="logic-mode-wrap" for="logic-mode-filter">
@@ -271,13 +274,39 @@ Find intraday names that can open strong, keep trend quality through the session
                           <option value="NOR">NOR</option>
                         </select>
                       </label>
-                      <button class="ghost-button compact-button" id="add-formula-rule" type="button">Add rule</button>
+                      <button class="ghost-button compact-button" id="add-formula-rule" type="button">Add filter</button>
                     </div>
                   </div>
-                  <div class="formula-rule-list" id="formula-rule-list"></div>
-                  <p class="muted small-note" id="formula-summary">
-                    Rules can run through AND, OR, NAND, or NOR, and each block can be inverted with NOT.
-                  </p>
+                  <div class="formula-tab-row">
+                    <button class="formula-tab active" data-formula-panel="rules" type="button">Rules</button>
+                    <button class="formula-tab" data-formula-panel="metrics" type="button">Custom metric</button>
+                  </div>
+                  <div class="formula-view active" data-formula-view="rules">
+                    <div class="formula-rule-list" id="formula-rule-list"></div>
+                    <p class="muted small-note" id="formula-summary">
+                      Rules can run through AND, OR, NAND, or NOR, and each block can be inverted with NOT.
+                    </p>
+                  </div>
+                  <div class="formula-view" data-formula-view="metrics">
+                    <div class="metric-builder">
+                      <label>
+                        <span class="section-label">Metric name</span>
+                        <input id="custom-metric-name" type="text" placeholder="Pre-market dollar volume" />
+                      </label>
+                      <label>
+                        <span class="section-label">Expression</span>
+                        <input id="custom-metric-expression" type="text" placeholder="price * volume" />
+                      </label>
+                      <button class="ghost-button compact-button" id="save-custom-metric" type="button">Save metric</button>
+                    </div>
+                    <div class="metric-builder-footer">
+                      <p class="muted small-note" id="custom-metric-feedback">
+                        Expressions support numbers, field names, parentheses, + - * /, and abs(), min(), max().
+                      </p>
+                      <div class="metric-deps" id="custom-metric-deps"></div>
+                    </div>
+                    <div class="custom-metric-list" id="custom-metric-list"></div>
+                  </div>
                 </section>
 
                 <div class="action-row">
@@ -521,6 +550,26 @@ Find intraday names that can open strong, keep trend quality through the session
         <p class="muted small-note" id="data-source-note">
           Public deploys should use a server environment variable instead of a client-stored key.
         </p>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="field-library-modal" hidden>
+      <div class="modal-card field-library-card" role="dialog" aria-modal="true" aria-labelledby="field-library-title">
+        <div class="modal-head">
+          <div>
+            <p class="section-label">Field library</p>
+            <h2 id="field-library-title">Browse every supported and planned screener field</h2>
+          </div>
+          <button class="ghost-button modal-close" id="field-library-close" type="button">Close</button>
+        </div>
+        <label class="api-key-wrap" for="field-library-search">
+          <span class="section-label">Search fields</span>
+          <input id="field-library-search" type="search" placeholder="Search price, RSI, float, EV / EBITDA..." />
+        </label>
+        <p class="muted small-note" id="field-library-notice">
+          Live and derived fields can be added now. Locked fields stay visible so the directory remains honest.
+        </p>
+        <div class="field-library-groups" id="field-library-groups"></div>
       </div>
     </div>
 

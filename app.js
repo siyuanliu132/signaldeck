@@ -69,6 +69,103 @@ const FORMULA_FIELDS = [
   { key: "marketCap", label: "Market cap", type: "text" },
 ];
 
+const FIELD_CATEGORY_ORDER = [
+  "Market & Extended Hours",
+  "Technicals",
+  "Security / Structure / Catalyst",
+  "Financials",
+  "Valuation",
+  "Growth",
+  "Dividends",
+  "Margins & Ratios",
+  "Custom Metrics",
+];
+
+const BASE_FIELD_CATALOG = [
+  { key: "price", label: "Price", category: "Market & Extended Hours", subcategory: "Last trade", type: "number", availability: "live", source: "quote", description: "Last traded price from the shared quote snapshot." },
+  { key: "open", label: "Open", category: "Market & Extended Hours", subcategory: "Session structure", type: "number", availability: "live", source: "quote", description: "Current regular-session open from the quote snapshot." },
+  { key: "high", label: "High", category: "Market & Extended Hours", subcategory: "Session structure", type: "number", availability: "live", source: "quote", description: "Current session high from the quote snapshot." },
+  { key: "low", label: "Low", category: "Market & Extended Hours", subcategory: "Session structure", type: "number", availability: "live", source: "quote", description: "Current session low from the quote snapshot." },
+  { key: "previousClose", label: "Previous close", category: "Market & Extended Hours", subcategory: "Session structure", type: "number", availability: "live", source: "quote", description: "Prior closing price used for change and gap calculations." },
+  { key: "volume", label: "Volume", category: "Market & Extended Hours", subcategory: "Participation", type: "number", availability: "live", source: "quote", description: "Current session volume from the live quote snapshot." },
+  { key: "averageVolume", label: "Average volume", category: "Market & Extended Hours", subcategory: "Participation", type: "number", availability: "live", source: "quote", description: "Average session volume supplied by the quote feed." },
+  { key: "changePct", label: "Session change %", category: "Market & Extended Hours", subcategory: "Price change", type: "number", availability: "derived", source: "price / previous close", description: "Percent change versus previous close." },
+  { key: "gap", label: "Gap %", category: "Market & Extended Hours", subcategory: "Price change", type: "number", availability: "derived", source: "open / previous close", description: "Gap percentage between the open and previous close." },
+  { key: "gapAbs", label: "Absolute gap %", category: "Market & Extended Hours", subcategory: "Price change", type: "number", availability: "derived", source: "abs(gap)", getter: stock => Math.abs(Number(stock.gap || 0)), description: "Absolute gap percentage regardless of direction." },
+  { key: "drivePct", label: "Drive from open %", category: "Market & Extended Hours", subcategory: "Price change", type: "number", availability: "derived", source: "price / open", description: "Percent move from the current open to the last price." },
+  { key: "rangePct", label: "Range %", category: "Market & Extended Hours", subcategory: "Price change", type: "number", availability: "derived", source: "high / low / open", description: "Session range expressed as a percentage of the open." },
+  { key: "rangeMinusGap", label: "Range % minus |gap %|", category: "Market & Extended Hours", subcategory: "Price change", type: "number", availability: "derived", source: "rangePct - abs(gap)", getter: stock => Number(stock.rangePct || 0) - Math.abs(Number(stock.gap || 0)), description: "Useful for separating true expansion from simple gap size." },
+  { key: "turnover", label: "Dollar volume estimate", category: "Market & Extended Hours", subcategory: "Participation", type: "number", availability: "derived", source: "price x volume", description: "Synthetic dollar volume estimate built from price times volume." },
+  { key: "avgTurnover", label: "Average dollar volume estimate", category: "Market & Extended Hours", subcategory: "Participation", type: "number", availability: "derived", source: "price x averageVolume", getter: stock => Number(stock.price || 0) * Number(stock.averageVolume || 0), description: "Synthetic average dollar volume estimate built from price times average volume." },
+  { key: "turnoverRatio", label: "Dollar volume / average dollar volume", category: "Market & Extended Hours", subcategory: "Participation", type: "number", availability: "derived", source: "turnover / avgTurnover", getter: stock => { const avgTurnover = Number(stock.price || 0) * Number(stock.averageVolume || 0); return avgTurnover ? Number(stock.turnover || 0) / avgTurnover : 0; }, description: "Synthetic ratio showing current dollar activity versus average dollar activity." },
+  { key: "volatility", label: "Volatility", category: "Market & Extended Hours", subcategory: "Price change", type: "number", availability: "derived", source: "high / low / previous close", description: "Current session volatility estimate derived from the quote range." },
+  { key: "proxyVwap", label: "VWAP proxy", category: "Market & Extended Hours", subcategory: "Microstructure", type: "number", availability: "derived", source: "typical price proxy", description: "Quote-structure VWAP proxy built from high, low, and last price." },
+  { key: "vwapDrift", label: "Distance from VWAP proxy %", category: "Market & Extended Hours", subcategory: "Microstructure", type: "number", availability: "derived", source: "price / proxyVwap", description: "Distance from the quote-based VWAP proxy in percent." },
+  { key: "closePosition", label: "Close position", category: "Market & Extended Hours", subcategory: "Microstructure", type: "number", availability: "derived", source: "price within range", description: "Where the last price sits inside the current session range." },
+  { key: "relativeVolume", label: "Relative volume", category: "Technicals", subcategory: "Participation", type: "number", availability: "derived", source: "volume / averageVolume", description: "Current volume versus average volume." },
+  { key: "momentum", label: "Momentum", category: "Technicals", subcategory: "Composite scores", type: "number", availability: "derived", source: "local composite", description: "Local composite score weighting price expansion, participation, and structure." },
+  { key: "risk", label: "Risk", category: "Technicals", subcategory: "Composite scores", type: "number", availability: "derived", source: "local composite", description: "Local downside risk estimate derived from volatility, structure, and participation." },
+  { key: "quality", label: "Trend quality", category: "Technicals", subcategory: "Composite scores", type: "number", availability: "derived", source: "local composite", description: "Local quality score focused on clean structure and hold behavior." },
+  { key: "carry", label: "Carry strength", category: "Technicals", subcategory: "Composite scores", type: "number", availability: "derived", source: "local composite", description: "Local carry score favoring cleaner continuation and hold quality." },
+  { key: "liquidity", label: "Liquidity", category: "Technicals", subcategory: "Composite scores", type: "number", availability: "derived", source: "local composite", description: "Local liquidity score based on current volume and participation." },
+  { key: "session", label: "Session bias", category: "Security / Structure / Catalyst", subcategory: "Structure", type: "text", availability: "live", source: "local universe metadata", description: "Current SignalDeck session label for the tracked name." },
+  { key: "sector", label: "Sector", category: "Security / Structure / Catalyst", subcategory: "Classification", type: "text", availability: "live", source: "local universe metadata", description: "Sector label for the tracked name." },
+  { key: "theme", label: "Theme", category: "Security / Structure / Catalyst", subcategory: "Classification", type: "text", availability: "live", source: "local universe metadata", description: "Narrative bucket used in the demo universe." },
+  { key: "marketCap", label: "Market cap tier", category: "Security / Structure / Catalyst", subcategory: "Classification", type: "text", availability: "live", source: "local universe metadata", description: "Cap bucket assigned to the tracked name." },
+];
+
+const LOCKED_FIELD_CATALOG = [
+  { key: "rsi14", label: "RSI (14)", category: "Technicals", subcategory: "Oscillators", type: "number", availability: "locked", lockedReason: "Coming soon. Needs richer historical data than the current quote snapshot." },
+  { key: "ema9", label: "EMA (9)", category: "Technicals", subcategory: "Moving averages", type: "number", availability: "locked", lockedReason: "Coming soon. Needs richer historical bars and moving-average calculation support." },
+  { key: "ema20", label: "EMA (20)", category: "Technicals", subcategory: "Moving averages", type: "number", availability: "locked", lockedReason: "Coming soon. Needs richer historical bars and moving-average calculation support." },
+  { key: "sma50", label: "SMA (50)", category: "Technicals", subcategory: "Moving averages", type: "number", availability: "locked", lockedReason: "Coming soon. Needs richer historical bars and moving-average calculation support." },
+  { key: "sma200", label: "SMA (200)", category: "Technicals", subcategory: "Moving averages", type: "number", availability: "locked", lockedReason: "Coming soon. Needs deeper history than the current demo feed." },
+  { key: "macdLine", label: "MACD line", category: "Technicals", subcategory: "Oscillators", type: "number", availability: "locked", lockedReason: "Coming soon. Needs richer historical data than the current quote snapshot." },
+  { key: "macdSignal", label: "MACD signal", category: "Technicals", subcategory: "Oscillators", type: "number", availability: "locked", lockedReason: "Coming soon. Needs richer historical data than the current quote snapshot." },
+  { key: "atr14", label: "ATR (14)", category: "Technicals", subcategory: "Volatility", type: "number", availability: "locked", lockedReason: "Coming soon. Needs richer historical bars than the live quote sample." },
+  { key: "dist52wHigh", label: "Distance from 52W high %", category: "Technicals", subcategory: "Range", type: "number", availability: "locked", lockedReason: "Coming soon. Needs longer-term historical range data." },
+  { key: "dist52wLow", label: "Distance from 52W low %", category: "Technicals", subcategory: "Range", type: "number", availability: "locked", lockedReason: "Coming soon. Needs longer-term historical range data." },
+  { key: "exchange", label: "Exchange", category: "Security / Structure / Catalyst", subcategory: "Classification", type: "text", availability: "locked", lockedReason: "Visible in the field library now, but the current demo universe does not expose exchange metadata." },
+  { key: "country", label: "Country", category: "Security / Structure / Catalyst", subcategory: "Classification", type: "text", availability: "locked", lockedReason: "Visible in the field library now, but the current demo universe does not expose country metadata." },
+  { key: "industry", label: "Industry", category: "Security / Structure / Catalyst", subcategory: "Classification", type: "text", availability: "locked", lockedReason: "Visible in the field library now, but the current demo universe does not expose industry metadata." },
+  { key: "float", label: "Float", category: "Security / Structure / Catalyst", subcategory: "Structure", type: "number", availability: "locked", lockedReason: "Coming soon. Float data requires a richer reference-data provider." },
+  { key: "sharesOutstanding", label: "Shares outstanding", category: "Security / Structure / Catalyst", subcategory: "Structure", type: "number", availability: "locked", lockedReason: "Coming soon. Shares-outstanding data requires a richer reference-data provider." },
+  { key: "shortFloat", label: "Short float %", category: "Security / Structure / Catalyst", subcategory: "Short interest", type: "number", availability: "locked", lockedReason: "Coming soon. Short-interest data requires a provider beyond the current quote feed." },
+  { key: "optionable", label: "Optionable", category: "Security / Structure / Catalyst", subcategory: "Structure", type: "text", availability: "locked", lockedReason: "Coming soon. Options metadata is not yet loaded into the demo universe." },
+  { key: "shortable", label: "Shortable", category: "Security / Structure / Catalyst", subcategory: "Structure", type: "text", availability: "locked", lockedReason: "Coming soon. Borrow / shortability metadata is not yet loaded." },
+  { key: "earningsDate", label: "Earnings date", category: "Security / Structure / Catalyst", subcategory: "Catalyst", type: "text", availability: "locked", lockedReason: "Coming soon. Event calendars require a richer reference-data provider." },
+  { key: "earningsTiming", label: "Earnings timing", category: "Security / Structure / Catalyst", subcategory: "Catalyst", type: "text", availability: "locked", lockedReason: "Coming soon. Event calendars require a richer reference-data provider." },
+  { key: "insiderOwnership", label: "Insider ownership %", category: "Security / Structure / Catalyst", subcategory: "Ownership", type: "number", availability: "locked", lockedReason: "Coming soon. Ownership data requires a richer fundamentals provider." },
+  { key: "insiderTransactions", label: "Insider transactions", category: "Security / Structure / Catalyst", subcategory: "Ownership", type: "text", availability: "locked", lockedReason: "Coming soon. Ownership data requires a richer fundamentals provider." },
+  { key: "institutionalOwnership", label: "Institutional ownership %", category: "Security / Structure / Catalyst", subcategory: "Ownership", type: "number", availability: "locked", lockedReason: "Coming soon. Ownership data requires a richer fundamentals provider." },
+  { key: "institutionalChange", label: "Institutional change %", category: "Security / Structure / Catalyst", subcategory: "Ownership", type: "number", availability: "locked", lockedReason: "Coming soon. Ownership data requires a richer fundamentals provider." },
+  { key: "revenue", label: "Revenue", category: "Financials", subcategory: "Income statement", type: "number", availability: "locked", lockedReason: "Coming soon. Financial statements are not available from the current quote feed." },
+  { key: "epsTtm", label: "EPS (TTM)", category: "Financials", subcategory: "Income statement", type: "number", availability: "locked", lockedReason: "Coming soon. Financial statements are not available from the current quote feed." },
+  { key: "ebitda", label: "EBITDA", category: "Financials", subcategory: "Income statement", type: "number", availability: "locked", lockedReason: "Coming soon. Financial statements are not available from the current quote feed." },
+  { key: "freeCashFlow", label: "Free cash flow", category: "Financials", subcategory: "Cash flow", type: "number", availability: "locked", lockedReason: "Coming soon. Cash-flow fields require a richer fundamentals provider." },
+  { key: "peRatio", label: "P/E", category: "Valuation", subcategory: "Multiples", type: "number", availability: "locked", lockedReason: "Coming soon. Valuation multiples are not available from the current quote feed." },
+  { key: "psRatio", label: "P/S", category: "Valuation", subcategory: "Multiples", type: "number", availability: "locked", lockedReason: "Coming soon. Valuation multiples are not available from the current quote feed." },
+  { key: "evToEbitda", label: "EV / EBITDA", category: "Valuation", subcategory: "Multiples", type: "number", availability: "locked", lockedReason: "Coming soon. Enterprise-value fields require a richer fundamentals provider." },
+  { key: "pbRatio", label: "P/B", category: "Valuation", subcategory: "Multiples", type: "number", availability: "locked", lockedReason: "Coming soon. Valuation multiples are not available from the current quote feed." },
+  { key: "pegRatio", label: "PEG", category: "Valuation", subcategory: "Multiples", type: "number", availability: "locked", lockedReason: "Coming soon. Growth-adjusted valuation fields require a richer fundamentals provider." },
+  { key: "revenueGrowth", label: "Revenue growth %", category: "Growth", subcategory: "Growth rates", type: "number", availability: "locked", lockedReason: "Coming soon. Growth rates require historical financial statements." },
+  { key: "epsGrowth", label: "EPS growth %", category: "Growth", subcategory: "Growth rates", type: "number", availability: "locked", lockedReason: "Coming soon. Growth rates require historical financial statements." },
+  { key: "ebitdaGrowth", label: "EBITDA growth %", category: "Growth", subcategory: "Growth rates", type: "number", availability: "locked", lockedReason: "Coming soon. Growth rates require historical financial statements." },
+  { key: "fcfGrowth", label: "Free cash flow growth %", category: "Growth", subcategory: "Growth rates", type: "number", availability: "locked", lockedReason: "Coming soon. Growth rates require historical financial statements." },
+  { key: "dividendYield", label: "Dividend yield %", category: "Dividends", subcategory: "Yield", type: "number", availability: "locked", lockedReason: "Coming soon. Dividend fields are not available from the current quote feed." },
+  { key: "payoutRatio", label: "Payout ratio %", category: "Dividends", subcategory: "Yield", type: "number", availability: "locked", lockedReason: "Coming soon. Dividend fields are not available from the current quote feed." },
+  { key: "dividendGrowth", label: "Dividend growth %", category: "Dividends", subcategory: "Growth", type: "number", availability: "locked", lockedReason: "Coming soon. Dividend history requires a richer fundamentals provider." },
+  { key: "grossMargin", label: "Gross margin %", category: "Margins & Ratios", subcategory: "Margins", type: "number", availability: "locked", lockedReason: "Coming soon. Margin data requires a richer fundamentals provider." },
+  { key: "operatingMargin", label: "Operating margin %", category: "Margins & Ratios", subcategory: "Margins", type: "number", availability: "locked", lockedReason: "Coming soon. Margin data requires a richer fundamentals provider." },
+  { key: "netMargin", label: "Net margin %", category: "Margins & Ratios", subcategory: "Margins", type: "number", availability: "locked", lockedReason: "Coming soon. Margin data requires a richer fundamentals provider." },
+  { key: "roe", label: "ROE %", category: "Margins & Ratios", subcategory: "Returns", type: "number", availability: "locked", lockedReason: "Coming soon. Return-ratio data requires a richer fundamentals provider." },
+  { key: "roic", label: "ROIC %", category: "Margins & Ratios", subcategory: "Returns", type: "number", availability: "locked", lockedReason: "Coming soon. Return-ratio data requires a richer fundamentals provider." },
+  { key: "debtToEquity", label: "Debt / equity", category: "Margins & Ratios", subcategory: "Leverage", type: "number", availability: "locked", lockedReason: "Coming soon. Balance-sheet ratio data requires a richer fundamentals provider." },
+];
+
+const INITIAL_WORKSPACE_STATE = loadWorkspaceState();
+const INITIAL_CUSTOM_METRICS = hydrateCustomMetrics(INITIAL_WORKSPACE_STATE.customMetrics || []);
+
 const CLASSIC_PRESETS = {
   "opening-drive": {
     label: "Opening drive",
@@ -195,8 +292,10 @@ const state = {
   accountMenuOpen: false,
   authModalOpen: false,
   dataModalOpen: false,
+  fieldLibraryOpen: false,
   aiWorking: false,
   resultsView: "table",
+  formulaPanelMode: "rules",
   aiRuntime: {
     source: "heuristic",
     provider: "Heuristic parser",
@@ -221,7 +320,17 @@ const state = {
   isLoadingHistory: false,
   loadError: "",
   watchlist: loadWatchlist(),
+  customMetrics: INITIAL_CUSTOM_METRICS,
   searchTerm: "",
+  fieldLibrarySearch: "",
+  fieldLibraryNotice: "",
+  customMetricDraft: {
+    name: "",
+    expression: "",
+    feedback: "",
+    error: "",
+    dependencies: [],
+  },
   authMessage: "Guest mode stores watchlists only in this browser.",
   profile: createProfile({
     label: "Balanced momentum",
@@ -243,7 +352,7 @@ const state = {
       ],
     },
   }),
-  classicFilters: getDefaultClassicFilters(),
+  classicFilters: hydrateClassicFilters(INITIAL_WORKSPACE_STATE.classicFilters || getDefaultClassicFilters(), INITIAL_CUSTOM_METRICS),
 };
 
 const elements = {
@@ -281,6 +390,11 @@ const elements = {
   authModalClose: document.getElementById("auth-modal-close"),
   dataModal: document.getElementById("data-modal"),
   dataModalClose: document.getElementById("data-modal-close"),
+  fieldLibraryModal: document.getElementById("field-library-modal"),
+  fieldLibraryClose: document.getElementById("field-library-close"),
+  fieldLibrarySearch: document.getElementById("field-library-search"),
+  fieldLibraryGroups: document.getElementById("field-library-groups"),
+  fieldLibraryNotice: document.getElementById("field-library-notice"),
   authEmailWrap: document.getElementById("auth-email-wrap"),
   authPasswordWrap: document.getElementById("auth-password-wrap"),
   authEmail: document.getElementById("auth-email"),
@@ -326,6 +440,14 @@ const elements = {
   formulaRuleList: document.getElementById("formula-rule-list"),
   addFormulaRule: document.getElementById("add-formula-rule"),
   formulaSummary: document.getElementById("formula-summary"),
+  formulaTabs: [...document.querySelectorAll("[data-formula-panel]")],
+  formulaPanels: [...document.querySelectorAll("[data-formula-view]")],
+  customMetricName: document.getElementById("custom-metric-name"),
+  customMetricExpression: document.getElementById("custom-metric-expression"),
+  customMetricDeps: document.getElementById("custom-metric-deps"),
+  customMetricFeedback: document.getElementById("custom-metric-feedback"),
+  customMetricList: document.getElementById("custom-metric-list"),
+  saveCustomMetric: document.getElementById("save-custom-metric"),
   presetSummary: document.getElementById("preset-summary"),
   logicModeFilter: document.getElementById("logic-mode-filter"),
   momentumValue: document.getElementById("momentum-value"),
@@ -422,6 +544,10 @@ function bindEvents() {
     state.dataModalOpen = false;
     renderAuthState();
   });
+  elements.fieldLibraryClose.addEventListener("click", () => {
+    state.fieldLibraryOpen = false;
+    renderFieldLibrary();
+  });
 
   elements.runAi.addEventListener("click", () => handleAiRun(elements.aiQuery.value.trim()));
   elements.applyFilters.addEventListener("click", applyClassicFilters);
@@ -480,9 +606,25 @@ function bindEvents() {
     applyClassicFilters();
   });
   elements.addFormulaRule.addEventListener("click", () => {
-    state.classicFilters.formulaRules.push(createFormulaRule());
-    applyClassicFilters();
+    state.fieldLibraryOpen = true;
+    state.fieldLibrarySearch = "";
+    state.fieldLibraryNotice = "Choose a live or derived field to add it as a rule.";
+    renderFieldLibrary();
   });
+  elements.fieldLibrarySearch.addEventListener("input", event => {
+    state.fieldLibrarySearch = event.target.value;
+    renderFieldLibrary();
+  });
+  elements.formulaTabs.forEach(button => {
+    button.addEventListener("click", () => {
+      state.formulaPanelMode = button.dataset.formulaPanel;
+      renderFormulaPanelState();
+    });
+  });
+  [elements.customMetricName, elements.customMetricExpression].forEach(control => {
+    control.addEventListener("input", handleCustomMetricDraftInput);
+  });
+  elements.saveCustomMetric.addEventListener("click", handleSaveCustomMetric);
   document.addEventListener("click", event => {
     if (!state.accountMenuOpen) {
       if (event.target === elements.authModal) {
@@ -493,6 +635,10 @@ function bindEvents() {
         state.dataModalOpen = false;
         renderAuthState();
       }
+      if (event.target === elements.fieldLibraryModal) {
+        state.fieldLibraryOpen = false;
+        renderFieldLibrary();
+      }
       return;
     }
     if (!event.target.closest(".account-shell")) {
@@ -500,6 +646,65 @@ function bindEvents() {
       renderAuthState();
     }
   });
+}
+
+function handleCustomMetricDraftInput() {
+  const name = elements.customMetricName.value;
+  const expression = elements.customMetricExpression.value;
+  if (!String(name).trim() && !String(expression).trim()) {
+    state.customMetricDraft = {
+      name: "",
+      expression: "",
+      feedback: "",
+      error: "",
+      dependencies: [],
+    };
+    renderCustomMetricState();
+    return;
+  }
+  const validation = validateCustomMetricDraft(name, expression);
+  state.customMetricDraft = {
+    name,
+    expression,
+    feedback: validation.feedback,
+    error: validation.error,
+    dependencies: validation.dependencies,
+  };
+  renderCustomMetricState();
+}
+
+function handleSaveCustomMetric() {
+  handleCustomMetricDraftInput();
+  if (state.customMetricDraft.error) {
+    renderCustomMetricState();
+    return;
+  }
+
+  const normalized = normalizeCustomMetric({
+    id: createMetricId(),
+    name: state.customMetricDraft.name,
+    expression: state.customMetricDraft.expression,
+  });
+
+  if (!normalized) {
+    state.customMetricDraft.error = "Metric could not be saved.";
+    renderCustomMetricState();
+    return;
+  }
+
+  state.customMetrics = [
+    ...state.customMetrics.filter(metric => metric.name.toLowerCase() !== normalized.name.toLowerCase()),
+    normalized,
+  ];
+  state.customMetricDraft = {
+    name: "",
+    expression: "",
+    feedback: `${normalized.name} is now available in Rules and the field library.`,
+    error: "",
+    dependencies: [],
+  };
+  scheduleWorkspacePersist();
+  render();
 }
 
 async function handleAiRun(nextQuery) {
@@ -586,11 +791,12 @@ function applyClassicPreset(presetKey) {
 }
 
 function createFormulaRule() {
+  const defaultField = getExecutableFieldCatalog()[0]?.key || "relativeVolume";
   return {
     id: createRuleId(),
-    field: "relativeVolume",
+    field: defaultField,
     operator: ">=",
-    value: "1.5",
+    value: getFormulaFieldMeta(defaultField)?.type === "text" ? "" : "0",
     valueSecondary: "",
     negate: false,
   };
@@ -598,6 +804,334 @@ function createFormulaRule() {
 
 function createRuleId() {
   return `rule-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function createMetricId() {
+  return `metric-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getWorkspaceSnapshot() {
+  return {
+    classicFilters: {
+      ...state.classicFilters,
+      formulaRules: sanitizeFormulaRules(state.classicFilters.formulaRules),
+    },
+    customMetrics: serializeCustomMetrics(state.customMetrics),
+  };
+}
+
+function loadWorkspaceState() {
+  try {
+    const raw = window.localStorage.getItem("signaldeck-screen-state");
+    if (!raw) {
+      return { classicFilters: getDefaultClassicFilters(), customMetrics: [] };
+    }
+    const parsed = JSON.parse(raw);
+    return {
+      classicFilters: parsed?.classicFilters || getDefaultClassicFilters(),
+      customMetrics: Array.isArray(parsed?.customMetrics) ? parsed.customMetrics : [],
+    };
+  } catch (error) {
+    return { classicFilters: getDefaultClassicFilters(), customMetrics: [] };
+  }
+}
+
+function saveWorkspaceState(snapshot) {
+  try {
+    window.localStorage.setItem("signaldeck-screen-state", JSON.stringify(snapshot));
+  } catch (error) {
+    console.warn("Unable to persist screen state", error);
+  }
+}
+
+let workspacePersistTimer = null;
+
+function scheduleWorkspacePersist() {
+  saveWorkspaceState(getWorkspaceSnapshot());
+
+  if (!state.currentUser) {
+    return;
+  }
+
+  window.clearTimeout(workspacePersistTimer);
+  workspacePersistTimer = window.setTimeout(() => {
+    persistWorkspaceState();
+  }, 500);
+}
+
+async function persistUserMetadata(patch) {
+  if (!state.currentUser) {
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.updateUser({
+    data: {
+      ...(state.currentUser.user_metadata || {}),
+      ...patch,
+    },
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  state.currentUser = data.user;
+}
+
+async function persistWorkspaceState() {
+  try {
+    await persistUserMetadata({
+      screenState: getWorkspaceSnapshot(),
+    });
+  } catch (error) {
+    state.authMessage = error.message;
+  } finally {
+    render();
+  }
+}
+
+function hydrateClassicFilters(filters, customMetrics = null) {
+  const defaults = getDefaultClassicFilters();
+  return {
+    ...defaults,
+    ...(filters || {}),
+    formulaRules: sanitizeFormulaRules(filters?.formulaRules || defaults.formulaRules, customMetrics),
+  };
+}
+
+function serializeCustomMetrics(metrics) {
+  return (Array.isArray(metrics) ? metrics : []).map(metric => ({
+    id: metric.id,
+    name: metric.name,
+    expression: metric.expression,
+    type: "number",
+  }));
+}
+
+function hydrateCustomMetrics(metrics) {
+  return (Array.isArray(metrics) ? metrics : [])
+    .map(metric => normalizeCustomMetric(metric))
+    .filter(Boolean);
+}
+
+function normalizeCustomMetric(metric) {
+  const name = String(metric?.name || "").trim();
+  const expression = String(metric?.expression || "").trim();
+  if (!name || !expression) {
+    return null;
+  }
+
+  const validation = validateCustomMetricDraft(name, expression);
+  if (validation.error) {
+    return null;
+  }
+
+  return {
+    id: metric.id || createMetricId(),
+    name,
+    expression,
+    type: "number",
+    dependencies: validation.dependencies,
+    compiled: validation.compiled,
+    feedback: validation.feedback,
+  };
+}
+
+function getBaseNumericExpressionFields() {
+  return BASE_FIELD_CATALOG.filter(field => field.type === "number" && field.availability !== "locked");
+}
+
+function getBaseFieldMeta(fieldKey) {
+  return BASE_FIELD_CATALOG.find(field => field.key === fieldKey) || null;
+}
+
+function getCustomMetricCatalogItems(customMetrics = null) {
+  const metrics = customMetrics || (typeof state === "undefined" ? [] : state.customMetrics);
+  return metrics.map(metric => ({
+    key: metric.id,
+    label: metric.name,
+    category: "Custom Metrics",
+    subcategory: "Expression builder",
+    type: "number",
+    availability: "derived",
+    source: metric.expression,
+    description: metric.feedback || `Built from ${metric.expression}`,
+    customMetric: metric,
+  }));
+}
+
+function getExecutableFieldCatalog(customMetrics = null) {
+  return [...BASE_FIELD_CATALOG.filter(field => field.availability !== "locked"), ...getCustomMetricCatalogItems(customMetrics)];
+}
+
+function getFullFieldCatalog() {
+  return [...BASE_FIELD_CATALOG, ...LOCKED_FIELD_CATALOG, ...getCustomMetricCatalogItems()];
+}
+
+function getRuleFieldGroups() {
+  return FIELD_CATEGORY_ORDER.map(category => ({
+    category,
+    fields: getExecutableFieldCatalog().filter(field => field.category === category),
+  })).filter(group => group.fields.length);
+}
+
+function getFieldCatalogGroups(searchTerm = "") {
+  const needle = String(searchTerm || "").trim().toLowerCase();
+  return FIELD_CATEGORY_ORDER.map(category => ({
+    category,
+    fields: getFullFieldCatalog().filter(field => {
+      if (field.category !== category) {
+        return false;
+      }
+      if (!needle) {
+        return true;
+      }
+
+      const haystack = `${field.label} ${field.key} ${field.category} ${field.subcategory || ""} ${field.description || ""}`.toLowerCase();
+      return haystack.includes(needle);
+    }),
+  })).filter(group => group.fields.length);
+}
+
+function getRuleFieldSelectOptions(selectedField) {
+  return getRuleFieldGroups()
+    .map(
+      group => `
+        <optgroup label="${group.category}">
+          ${group.fields
+            .map(field => `<option value="${field.key}" ${field.key === selectedField ? "selected" : ""}>${field.label}</option>`)
+            .join("")}
+        </optgroup>
+      `,
+    )
+    .join("");
+}
+
+function getFieldAvailabilityLabel(availability) {
+  if (availability === "derived") {
+    return "Derived";
+  }
+  if (availability === "locked") {
+    return "Locked";
+  }
+  return "Live";
+}
+
+function getMetricDependencyLabel(fieldKey) {
+  return getBaseFieldMeta(fieldKey)?.label || fieldKey;
+}
+
+function validateCustomMetricDraft(name, expression) {
+  const trimmedName = String(name || "").trim();
+  const trimmedExpression = String(expression || "").trim();
+  if (!trimmedName) {
+    return { error: "Name is required.", dependencies: [], feedback: "", compiled: null };
+  }
+  if (!trimmedExpression) {
+    return { error: "Expression is required.", dependencies: [], feedback: "", compiled: null };
+  }
+
+  const tokenPattern = /([A-Za-z_][A-Za-z0-9_]*|\d+(?:\.\d+)?|\.\d+|[()+\-*/,])/g;
+  const stripped = trimmedExpression.replace(/\s+/g, "");
+  const tokens = trimmedExpression.match(tokenPattern) || [];
+  if (tokens.join("").replace(/\s+/g, "") !== stripped) {
+    return { error: "Expression contains unsupported characters.", dependencies: [], feedback: "", compiled: null };
+  }
+
+  let depth = 0;
+  for (const token of tokens) {
+    if (token === "(") {
+      depth += 1;
+    } else if (token === ")") {
+      depth -= 1;
+      if (depth < 0) {
+        return { error: "Parentheses do not match.", dependencies: [], feedback: "", compiled: null };
+      }
+    }
+  }
+  if (depth !== 0) {
+    return { error: "Parentheses do not match.", dependencies: [], feedback: "", compiled: null };
+  }
+
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index] === "/" && Number(tokens[index + 1]) === 0) {
+      return { error: "Potential divide-by-zero risk detected.", dependencies: [], feedback: "", compiled: null };
+    }
+  }
+
+  const allowedFields = new Set(getBaseNumericExpressionFields().map(field => field.key));
+  const supportedFunctions = new Set(["abs", "min", "max"]);
+  const dependencies = [];
+  const compiledTokens = [];
+
+  for (const token of tokens) {
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(token)) {
+      if (supportedFunctions.has(token)) {
+        compiledTokens.push(`__${token}`);
+        continue;
+      }
+      if (!allowedFields.has(token)) {
+        return { error: `Unknown field: ${token}.`, dependencies: [], feedback: "", compiled: null };
+      }
+      dependencies.push(token);
+      compiledTokens.push(`get("${token}")`);
+      continue;
+    }
+    compiledTokens.push(token);
+  }
+
+  const compiledSource = compiledTokens.join(" ");
+
+  try {
+    const compiled = new Function(
+      "get",
+      "__abs",
+      "__min",
+      "__max",
+      `"use strict"; const value = (${compiledSource}); if (!Number.isFinite(value)) { throw new Error("Expression did not resolve to a finite number."); } return value;`,
+    );
+
+    compiled(() => 1, Math.abs, Math.min, Math.max);
+
+    const uniqueDependencies = [...new Set(dependencies)];
+    return {
+      error: "",
+      dependencies: uniqueDependencies,
+      compiled,
+      feedback: uniqueDependencies.length
+        ? `Built from ${uniqueDependencies.map(getMetricDependencyLabel).join(", ")}.`
+        : "Expression is ready to use.",
+    };
+  } catch (error) {
+    return {
+      error: error.message || "Expression could not be parsed.",
+      dependencies: [],
+      feedback: "",
+      compiled: null,
+    };
+  }
+}
+
+function evaluateCustomMetric(stock, metric) {
+  if (!metric?.compiled) {
+    return NaN;
+  }
+
+  try {
+    return metric.compiled(
+      key => {
+        const meta = getBaseFieldMeta(key);
+        const value = meta?.getter ? meta.getter(stock) : stock[key];
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : 0;
+      },
+      Math.abs,
+      Math.min,
+      Math.max,
+    );
+  } catch (error) {
+    return NaN;
+  }
 }
 
 function getAccountLabel(user) {
@@ -629,11 +1163,12 @@ function getAccountInitials(user) {
     .toUpperCase();
 }
 
-function sanitizeFormulaRules(rules) {
+function sanitizeFormulaRules(rules, customMetrics = null) {
+  const firstField = getExecutableFieldCatalog(customMetrics)[0]?.key || "relativeVolume";
   return (Array.isArray(rules) ? rules : [])
     .map(rule => ({
       id: rule.id || createRuleId(),
-      field: getFormulaFieldMeta(rule.field)?.key || "relativeVolume",
+      field: getFormulaFieldMeta(rule.field, customMetrics)?.key || firstField,
       operator: rule.operator || ">=",
       value: String(rule.value ?? ""),
       valueSecondary: String(rule.valueSecondary ?? ""),
@@ -641,8 +1176,12 @@ function sanitizeFormulaRules(rules) {
     }));
 }
 
-function getFormulaFieldMeta(fieldKey) {
-  return FORMULA_FIELDS.find(field => field.key === fieldKey) || null;
+function getCatalogFieldMeta(fieldKey) {
+  return getFullFieldCatalog().find(field => field.key === fieldKey) || null;
+}
+
+function getFormulaFieldMeta(fieldKey, customMetrics = null) {
+  return getExecutableFieldCatalog(customMetrics).find(field => field.key === fieldKey) || null;
 }
 
 function getOperatorsForRule(rule) {
@@ -703,6 +1242,9 @@ function getFormulaFieldValue(stock, fieldKey) {
   const meta = getFormulaFieldMeta(fieldKey);
   if (!meta) {
     return undefined;
+  }
+  if (meta.customMetric) {
+    return evaluateCustomMetric(stock, meta.customMetric);
   }
   return typeof meta.getter === "function" ? meta.getter(stock) : stock[fieldKey];
 }
@@ -789,17 +1331,25 @@ async function fetchSession() {
     state.currentUser = data.user || null;
     if (state.currentUser) {
       await syncWatchlistFromAccount();
+      await syncWorkspaceStateFromAccount();
       state.authMessage = state.currentUser.email_confirmed_at
         ? "Account active. Watchlist and saved state now follow your profile."
         : "Check your inbox to confirm this email address.";
       state.authModalOpen = false;
     } else {
       state.watchlist = loadWatchlist();
+      const workspaceState = loadWorkspaceState();
+      state.classicFilters = hydrateClassicFilters(workspaceState.classicFilters);
+      state.customMetrics = hydrateCustomMetrics(workspaceState.customMetrics);
     }
   } catch (error) {
     state.currentUser = null;
     state.watchlist = loadWatchlist();
+    const workspaceState = loadWorkspaceState();
+    state.classicFilters = hydrateClassicFilters(workspaceState.classicFilters);
+    state.customMetrics = hydrateCustomMetrics(workspaceState.customMetrics);
   } finally {
+    syncClassicControls();
     renderAuthState();
   }
 }
@@ -814,9 +1364,14 @@ function bindSupabaseAuthListener() {
     state.currentUser = session?.user || null;
     if (state.currentUser) {
       await syncWatchlistFromAccount();
+      await syncWorkspaceStateFromAccount();
     } else {
       state.watchlist = loadWatchlist();
+      const workspaceState = loadWorkspaceState();
+      state.classicFilters = hydrateClassicFilters(workspaceState.classicFilters);
+      state.customMetrics = hydrateCustomMetrics(workspaceState.customMetrics);
     }
+    syncClassicControls();
     render();
   });
 }
@@ -858,9 +1413,11 @@ async function handleAuthSubmit() {
     elements.authPassword.value = "";
     if (state.currentUser) {
       await syncWatchlistFromAccount();
+      await syncWorkspaceStateFromAccount();
       state.authModalOpen = false;
       state.accountMenuOpen = false;
     }
+    syncClassicControls();
     render();
   } catch (error) {
     state.authMessage = error.message;
@@ -894,9 +1451,13 @@ async function handleLogout() {
 
   state.currentUser = null;
   state.watchlist = loadWatchlist();
+  const workspaceState = loadWorkspaceState();
+  state.classicFilters = hydrateClassicFilters(workspaceState.classicFilters);
+  state.customMetrics = hydrateCustomMetrics(workspaceState.customMetrics);
   state.authMessage = "Signed out. Guest mode stores watchlists only in this browser.";
   state.accountMenuOpen = false;
   state.authModalOpen = false;
+  syncClassicControls();
   render();
 }
 
@@ -1032,6 +1593,7 @@ function applyClassicFilters() {
     },
   });
 
+  scheduleWorkspacePersist();
   render();
 }
 
@@ -1568,7 +2130,10 @@ function render() {
   }
 
   renderAuthState();
+  renderFormulaPanelState();
   renderFormulaRules();
+  renderCustomMetricState();
+  renderFieldLibrary();
   renderSurfaceState();
   renderPulseStrip(ranked);
   renderScanDigest(ranked);
@@ -1742,13 +2307,151 @@ function renderFormulaRulesLegacy() {
   });
 }
 
+function renderFormulaPanelState() {
+  elements.formulaTabs.forEach(button => {
+    button.classList.toggle("active", button.dataset.formulaPanel === state.formulaPanelMode);
+  });
+  elements.formulaPanels.forEach(panel => {
+    panel.classList.toggle("active", panel.dataset.formulaView === state.formulaPanelMode);
+  });
+}
+
+function renderFieldLibrary() {
+  elements.fieldLibraryModal.hidden = !state.fieldLibraryOpen;
+  if (!state.fieldLibraryOpen) {
+    return;
+  }
+
+  elements.fieldLibrarySearch.value = state.fieldLibrarySearch;
+  elements.fieldLibraryNotice.textContent =
+    state.fieldLibraryNotice ||
+    "Live and derived fields can be added now. Locked fields stay visible so the directory remains honest.";
+
+  const groups = getFieldCatalogGroups(state.fieldLibrarySearch);
+  elements.fieldLibraryGroups.innerHTML = groups.length
+    ? groups
+        .map(
+          group => `
+            <section class="field-group">
+              <div class="field-group-head">
+                <p class="section-label">${group.category}</p>
+                <span class="mono">${group.fields.length} fields</span>
+              </div>
+              <div class="field-list">
+                ${group.fields
+                  .map(
+                    field => `
+                      <button class="field-row ${field.availability}" type="button" data-field-key="${field.key}" ${field.availability === "locked" ? 'data-field-locked="true"' : ""}>
+                        <div class="field-copy">
+                          <div class="field-title-row">
+                            <strong>${field.label}</strong>
+                            <span class="availability-badge ${field.availability}">${getFieldAvailabilityLabel(field.availability)}</span>
+                          </div>
+                          <p>${field.description || field.lockedReason || ""}</p>
+                          <span>${field.subcategory || ""}${field.source ? ` · ${field.source}` : ""}</span>
+                        </div>
+                      </button>
+                    `,
+                  )
+                  .join("")}
+              </div>
+            </section>
+          `,
+        )
+        .join("")
+    : `<div class="formula-empty"><p class="muted">No fields matched your search.</p><p class="muted small-note">Try searching by field name, category, or concept.</p></div>`;
+
+  [...elements.fieldLibraryGroups.querySelectorAll("[data-field-key]")].forEach(button => {
+    button.addEventListener("click", () => {
+      const field = getCatalogFieldMeta(button.dataset.fieldKey);
+      if (!field) {
+        return;
+      }
+      if (field.availability === "locked") {
+        state.fieldLibraryNotice = field.lockedReason || "This field is visible but not yet executable.";
+        renderFieldLibrary();
+        return;
+      }
+
+      state.classicFilters.formulaRules.push({
+        ...createFormulaRule(),
+        field: field.key,
+        operator: field.type === "text" ? "is" : ">=",
+        value: field.type === "text" ? "" : "0",
+      });
+      state.formulaPanelMode = "rules";
+      state.fieldLibraryOpen = false;
+      state.fieldLibraryNotice = "";
+      applyClassicFilters();
+    });
+  });
+}
+
+function renderCustomMetricState() {
+  elements.customMetricName.value = state.customMetricDraft.name;
+  elements.customMetricExpression.value = state.customMetricDraft.expression;
+  elements.customMetricFeedback.textContent =
+    state.customMetricDraft.error ||
+    state.customMetricDraft.feedback ||
+    "Expressions support numbers, field names, parentheses, + - * /, and abs(), min(), max().";
+  elements.customMetricFeedback.classList.toggle("negative", Boolean(state.customMetricDraft.error));
+  elements.customMetricDeps.innerHTML = state.customMetricDraft.dependencies.length
+    ? state.customMetricDraft.dependencies.map(dep => `<span class="intent-chip">${getMetricDependencyLabel(dep)}</span>`).join("")
+    : `<span class="muted small-note">No field dependencies detected yet.</span>`;
+
+  elements.customMetricList.innerHTML = state.customMetrics.length
+    ? state.customMetrics
+        .map(
+          metric => `
+            <article class="metric-item" data-metric-id="${metric.id}">
+              <div>
+                <strong>${metric.name}</strong>
+                <p>${metric.expression}</p>
+                <span>${metric.feedback || "Synthetic metric ready."}</span>
+              </div>
+              <div class="metric-item-actions">
+                <button class="ghost-button compact-button" type="button" data-metric-rule="${metric.id}">Use in rule</button>
+                <button class="ghost-button compact-button" type="button" data-metric-remove="${metric.id}">Delete</button>
+              </div>
+            </article>
+          `,
+        )
+        .join("")
+    : `<div class="formula-empty"><p class="muted">No custom metrics yet.</p><p class="muted small-note">Build your own field from the live or derived data that already exists in SignalDeck.</p></div>`;
+
+  [...elements.customMetricList.querySelectorAll("[data-metric-rule]")].forEach(button => {
+    button.addEventListener("click", () => {
+      state.classicFilters.formulaRules.push({
+        ...createFormulaRule(),
+        field: button.dataset.metricRule,
+        operator: ">=",
+        value: "0",
+      });
+      state.formulaPanelMode = "rules";
+      applyClassicFilters();
+    });
+  });
+
+  [...elements.customMetricList.querySelectorAll("[data-metric-remove]")].forEach(button => {
+    button.addEventListener("click", () => {
+      state.customMetrics = state.customMetrics.filter(metric => metric.id !== button.dataset.metricRemove);
+      state.classicFilters.formulaRules = state.classicFilters.formulaRules.filter(
+        rule => rule.field !== button.dataset.metricRemove,
+      );
+      scheduleWorkspacePersist();
+      applyClassicFilters();
+    });
+  });
+}
+
 function renderFormulaRules() {
   const rules = sanitizeFormulaRules(state.classicFilters.formulaRules);
   state.classicFilters.formulaRules = rules;
 
   const mode = String(state.classicFilters.groupMode || "AND").toUpperCase();
+  const syntheticRuleCount = rules.filter(rule => getFormulaFieldMeta(rule.field)?.category === "Custom Metrics").length;
   elements.formulaSummary.textContent = rules.length
-    ? `${rules.length} rule${rules.length === 1 ? "" : "s"} active. Group logic is ${mode}, with NOT plus range and synthetic-field support.`
+    ? `${rules.length} rule${rules.length === 1 ? "" : "s"} active. Group logic is ${mode}, with ${syntheticRuleCount} synthetic metric rule${syntheticRuleCount === 1 ? "" : "s"} and full range support.`
     : "No formula rules yet. Add a rule, choose AND/OR/NAND/NOR, and use ranges or synthetic fields when one raw field is not enough.";
 
   if (!rules.length) {
@@ -1772,9 +2475,7 @@ function renderFormulaRules() {
           <label>
             <span class="section-label">Field</span>
             <select data-rule-prop="field">
-              ${FORMULA_FIELDS.map(
-                field => `<option value="${field.key}" ${field.key === rule.field ? "selected" : ""}>${field.label}</option>`,
-              ).join("")}
+              ${getRuleFieldSelectOptions(rule.field)}
             </select>
           </label>
           <label>
@@ -1946,6 +2647,24 @@ async function syncWatchlistFromAccount() {
   state.watchlist = Array.isArray(watchlist) ? watchlist : [];
 }
 
+async function syncWorkspaceStateFromAccount() {
+  if (!state.currentUser) {
+    return;
+  }
+
+  const workspaceState = state.currentUser.user_metadata?.screenState;
+  if (!workspaceState) {
+    const localState = loadWorkspaceState();
+    state.classicFilters = hydrateClassicFilters(localState.classicFilters);
+    state.customMetrics = hydrateCustomMetrics(localState.customMetrics);
+    return;
+  }
+
+  state.classicFilters = hydrateClassicFilters(workspaceState.classicFilters);
+  state.customMetrics = hydrateCustomMetrics(workspaceState.customMetrics);
+  saveWorkspaceState(getWorkspaceSnapshot());
+}
+
 function renderScanDigest(ranked) {
   const chips = state.profile.meta.intentChips || [state.profile.label];
   const rationale = state.profile.meta.rationale || [];
@@ -1990,11 +2709,26 @@ function renderFilterChips() {
   if (state.classicFilters.theme !== "all") {
     chips.push({ key: "theme", label: state.classicFilters.theme, removable: true });
   }
+  if (state.customMetrics.length) {
+    state.customMetrics.forEach(metric => {
+      chips.push({
+        key: `metric:${metric.id}`,
+        label: `Metric: ${metric.name}`,
+        removable: true,
+      });
+    });
+  }
   if (state.classicFilters.formulaRules.length) {
-    chips.push({
-      key: "formulaRules",
-      label: `${state.classicFilters.groupMode} with ${state.classicFilters.formulaRules.length} rule${state.classicFilters.formulaRules.length === 1 ? "" : "s"}`,
-      removable: true,
+    state.classicFilters.formulaRules.forEach(rule => {
+      const field = getFormulaFieldMeta(rule.field);
+      const valueLabel = isRangeOperator(rule.operator)
+        ? `${rule.value} to ${rule.valueSecondary}`
+        : rule.value;
+      chips.push({
+        key: `rule:${rule.id}`,
+        label: `${rule.negate ? "NOT " : ""}${field?.label || rule.field} ${rule.operator} ${valueLabel}`,
+        removable: true,
+      });
     });
   }
 
@@ -2011,11 +2745,7 @@ function renderFilterChips() {
 
   elements.filterChipMeta.textContent = `${
     state.aiRuntime.source === "openai" ? "Server AI" : "Local parser"
-  } translated the current prompt into a ${state.profile.meta.riskBias.toLowerCase()} screen with ${
-    state.classicFilters.groupMode
-  } logic and ${state.classicFilters.formulaRules.length} custom rule${
-    state.classicFilters.formulaRules.length === 1 ? "" : "s"
-  }.`;
+  } translated the current prompt into a ${state.profile.meta.riskBias.toLowerCase()} screen with ${state.classicFilters.groupMode} logic, ${state.classicFilters.formulaRules.length} active rule${state.classicFilters.formulaRules.length === 1 ? "" : "s"}, and ${state.customMetrics.length} synthetic metric${state.customMetrics.length === 1 ? "" : "s"}.`;
 
   [...elements.filterChipBar.querySelectorAll("[data-chip-key]")].forEach(button => {
     button.addEventListener("click", () => {
@@ -2035,6 +2765,19 @@ function renderFilterChips() {
 
 function resetFilterChip(key) {
   const defaults = getDefaultClassicFilters();
+  if (key.startsWith("metric:")) {
+    const metricId = key.split(":")[1];
+    state.customMetrics = state.customMetrics.filter(metric => metric.id !== metricId);
+    state.classicFilters.formulaRules = state.classicFilters.formulaRules.filter(rule => rule.field !== metricId);
+    applyClassicFilters();
+    return;
+  }
+  if (key.startsWith("rule:")) {
+    const ruleId = key.split(":")[1];
+    state.classicFilters.formulaRules = state.classicFilters.formulaRules.filter(rule => rule.id !== ruleId);
+    applyClassicFilters();
+    return;
+  }
   switch (key) {
     case "session":
       state.classicFilters.session = defaults.session;
@@ -2586,20 +3329,14 @@ function compareRankedStocks(left, right) {
 async function persistWatchlist() {
   try {
     if (state.currentUser) {
-      const { data, error } = await supabaseClient.auth.updateUser({
-        data: {
-          ...(state.currentUser.user_metadata || {}),
-          watchlist: state.watchlist,
-        },
+      await persistUserMetadata({
+        watchlist: state.watchlist,
+        screenState: getWorkspaceSnapshot(),
       });
-      if (error) {
-        throw error;
-      }
-
-      state.currentUser = data.user;
       await syncWatchlistFromAccount();
     } else {
       saveWatchlist(state.watchlist);
+      saveWorkspaceState(getWorkspaceSnapshot());
     }
   } catch (error) {
     state.authMessage = error.message;
