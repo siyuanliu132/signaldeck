@@ -139,13 +139,37 @@ const REFRESH_INTERVAL_MS = 1000 * 60 * 4;
 const HISTORY_INTERVAL = "15min";
 const HISTORY_POINTS = 24;
 
+function getDefaultClassicFilters() {
+  return {
+    session: "all",
+    minMomentum: 68,
+    maxRisk: 48,
+    minRelativeVolume: 1.5,
+    sector: "all",
+    marketCap: "all",
+    minQuality: 70,
+    sortBy: "score",
+    minPrice: 0,
+    maxPrice: 9999,
+    theme: "all",
+    groupMode: "AND",
+    formulaRules: [
+      { id: createRuleId(), field: "relativeVolume", operator: ">=", value: "1.5", negate: false },
+      { id: createRuleId(), field: "quality", operator: ">=", value: "70", negate: false },
+    ],
+  };
+}
+
 const state = {
   surfaceMode: "ai",
   selectedSymbol: "NVDA",
   authMode: "login",
   currentUser: null,
   accountMenuOpen: false,
+  authModalOpen: false,
+  dataModalOpen: false,
   aiWorking: false,
+  resultsView: "table",
   aiRuntime: {
     source: "heuristic",
     provider: "Heuristic parser",
@@ -192,24 +216,7 @@ const state = {
       ],
     },
   }),
-  classicFilters: {
-    session: "all",
-    minMomentum: 68,
-    maxRisk: 48,
-    minRelativeVolume: 1.5,
-    sector: "all",
-    marketCap: "all",
-    minQuality: 70,
-    sortBy: "score",
-    minPrice: 0,
-    maxPrice: 9999,
-    theme: "all",
-    groupMode: "AND",
-    formulaRules: [
-      { id: createRuleId(), field: "relativeVolume", operator: ">=", value: "1.5", negate: false },
-      { id: createRuleId(), field: "quality", operator: ">=", value: "70", negate: false },
-    ],
-  },
+  classicFilters: getDefaultClassicFilters(),
 };
 
 const elements = {
@@ -243,6 +250,10 @@ const elements = {
   watchlistNote: document.getElementById("watchlist-note"),
   accountBadge: document.getElementById("account-badge"),
   accountCopy: document.getElementById("account-copy"),
+  authModal: document.getElementById("auth-modal"),
+  authModalClose: document.getElementById("auth-modal-close"),
+  dataModal: document.getElementById("data-modal"),
+  dataModalClose: document.getElementById("data-modal-close"),
   authEmailWrap: document.getElementById("auth-email-wrap"),
   authPasswordWrap: document.getElementById("auth-password-wrap"),
   authEmail: document.getElementById("auth-email"),
@@ -253,6 +264,7 @@ const elements = {
   authMessage: document.getElementById("auth-message"),
   topbarSignIn: document.getElementById("topbar-signin"),
   topbarRegister: document.getElementById("topbar-register"),
+  topbarSettings: document.getElementById("topbar-settings"),
   topbarAccount: document.getElementById("topbar-account"),
   accountTrigger: document.getElementById("account-trigger"),
   accountDrawer: document.getElementById("account-drawer"),
@@ -294,6 +306,11 @@ const elements = {
   volumeValue: document.getElementById("volume-value"),
   qualityValue: document.getElementById("quality-value"),
   applyFilters: document.getElementById("apply-filters"),
+  filterChipBar: document.getElementById("filter-chip-bar"),
+  filterChipMeta: document.getElementById("filter-chip-meta"),
+  resultsSurface: document.getElementById("results-surface"),
+  viewTable: document.getElementById("view-table"),
+  viewCards: document.getElementById("view-cards"),
   executionHeadline: document.getElementById("execution-headline"),
   executionChip: document.getElementById("execution-chip"),
   executionBody: document.getElementById("execution-body"),
@@ -346,23 +363,50 @@ function bindEvents() {
     button.addEventListener("click", () => setAuthMode(button.dataset.authMode));
   });
   elements.topbarSignIn.addEventListener("click", () => {
-    state.accountMenuOpen = true;
+    state.authModalOpen = true;
+    state.accountMenuOpen = false;
     setAuthMode("login");
     renderAuthState();
   });
   elements.topbarRegister.addEventListener("click", () => {
-    state.accountMenuOpen = true;
+    state.authModalOpen = true;
+    state.accountMenuOpen = false;
     setAuthMode("register");
     renderAuthState();
   });
+  elements.topbarSettings.addEventListener("click", () => {
+    state.dataModalOpen = true;
+    renderAuthState();
+  });
   elements.accountTrigger.addEventListener("click", () => {
-    state.accountMenuOpen = !state.accountMenuOpen;
+    if (!state.currentUser) {
+      state.authModalOpen = true;
+      setAuthMode("login");
+    } else {
+      state.accountMenuOpen = !state.accountMenuOpen;
+    }
+    renderAuthState();
+  });
+  elements.authModalClose.addEventListener("click", () => {
+    state.authModalOpen = false;
+    renderAuthState();
+  });
+  elements.dataModalClose.addEventListener("click", () => {
+    state.dataModalOpen = false;
     renderAuthState();
   });
 
   elements.runAi.addEventListener("click", () => handleAiRun(elements.aiQuery.value.trim()));
   elements.applyFilters.addEventListener("click", applyClassicFilters);
   elements.refreshMarket.addEventListener("click", () => refreshMarketData());
+  elements.viewTable.addEventListener("click", () => {
+    state.resultsView = "table";
+    render();
+  });
+  elements.viewCards.addEventListener("click", () => {
+    state.resultsView = "cards";
+    render();
+  });
   elements.authSubmit.addEventListener("click", handleAuthSubmit);
   elements.authGoogle.addEventListener("click", handleGoogleAuth);
   elements.authLogout.addEventListener("click", handleLogout);
@@ -379,26 +423,49 @@ function bindEvents() {
   });
   elements.momentumFilter.addEventListener("input", event => {
     elements.momentumValue.textContent = event.target.value;
+    applyClassicFilters();
   });
   elements.riskFilter.addEventListener("input", event => {
     elements.riskValue.textContent = event.target.value;
+    applyClassicFilters();
   });
   elements.volumeFilter.addEventListener("input", event => {
     elements.volumeValue.textContent = `${(event.target.value / 10).toFixed(1)}x`;
+    applyClassicFilters();
   });
   elements.qualityFilter.addEventListener("input", event => {
     elements.qualityValue.textContent = event.target.value;
+    applyClassicFilters();
+  });
+  [
+    elements.sessionFilter,
+    elements.sectorFilter,
+    elements.marketCapFilter,
+    elements.sortFilter,
+    elements.priceMinFilter,
+    elements.priceMaxFilter,
+    elements.themeFilter,
+  ].forEach(control => {
+    control.addEventListener(control.matches("input") ? "input" : "change", applyClassicFilters);
   });
   elements.logicModeFilter.addEventListener("change", event => {
     state.classicFilters.groupMode = event.target.value;
-    renderFormulaRules();
+    applyClassicFilters();
   });
   elements.addFormulaRule.addEventListener("click", () => {
     state.classicFilters.formulaRules.push(createFormulaRule());
-    renderFormulaRules();
+    applyClassicFilters();
   });
   document.addEventListener("click", event => {
     if (!state.accountMenuOpen) {
+      if (event.target === elements.authModal) {
+        state.authModalOpen = false;
+        renderAuthState();
+      }
+      if (event.target === elements.dataModal) {
+        state.dataModalOpen = false;
+        renderAuthState();
+      }
       return;
     }
     if (!event.target.closest(".account-shell")) {
@@ -465,6 +532,15 @@ function syncClassicControls() {
   elements.qualityValue.textContent = String(state.classicFilters.minQuality);
 }
 
+function setClassicFiltersFromAi(nextFilters) {
+  state.classicFilters = {
+    ...getDefaultClassicFilters(),
+    ...nextFilters,
+    formulaRules: sanitizeFormulaRules(nextFilters.formulaRules || []),
+  };
+  syncClassicControls();
+}
+
 function applyClassicPreset(presetKey) {
   const preset = CLASSIC_PRESETS[presetKey];
   if (!preset) {
@@ -478,6 +554,7 @@ function applyClassicPreset(presetKey) {
   syncClassicControls();
   elements.presetSummary.textContent = `${preset.label} loaded. ${preset.summary}`;
   renderFormulaRules();
+  setSurfaceMode("classic");
   applyClassicFilters();
 }
 
@@ -550,7 +627,7 @@ function updateFormulaRule(ruleId, prop, value) {
     rule.operator = getOperatorsForRule(rule)[0];
     rule.value = getFormulaFieldMeta(value)?.type === "text" ? "" : "0";
   }
-  renderFormulaRules();
+  applyClassicFilters();
 }
 
 function matchesFormulaRules(stock, rules, groupMode = "AND") {
@@ -641,6 +718,7 @@ async function fetchSession() {
       state.authMessage = state.currentUser.email_confirmed_at
         ? "Account active. Watchlist and saved state now follow your profile."
         : "Check your inbox to confirm this email address.";
+      state.authModalOpen = false;
     } else {
       state.watchlist = loadWatchlist();
     }
@@ -706,6 +784,8 @@ async function handleAuthSubmit() {
     elements.authPassword.value = "";
     if (state.currentUser) {
       await syncWatchlistFromAccount();
+      state.authModalOpen = false;
+      state.accountMenuOpen = false;
     }
     render();
   } catch (error) {
@@ -741,6 +821,8 @@ async function handleLogout() {
   state.currentUser = null;
   state.watchlist = loadWatchlist();
   state.authMessage = "Signed out. Guest mode stores watchlists only in this browser.";
+  state.accountMenuOpen = false;
+  state.authModalOpen = false;
   render();
 }
 
@@ -895,6 +977,7 @@ function runAiQuery(query, options = {}) {
   let filter = () => true;
   let title = "Top setups right now";
   let intentChips = ["Balanced horizon", "Flow-aware", "Trap filter on"];
+  let classicFilters = getDefaultClassicFilters();
   const rationale = [
     "SignalDeck starts by reading your requested time horizon so the board favors the right holding period.",
     "Risk posture is then adjusted to penalize unstable spikes and reward cleaner structure.",
@@ -906,6 +989,9 @@ function runAiQuery(query, options = {}) {
     description = "Prioritizing stable liquidity, cleaner continuation, and lower trap risk.";
     scoreConfig = { momentum: 0.82, safety: 1.35, carry: 0.9, sessionBoost: null };
     intentChips = ["Safer setups", "Liquidity-first", "Downside control"];
+    classicFilters.maxRisk = 36;
+    classicFilters.minQuality = 74;
+    classicFilters.marketCap = "Mega cap";
   }
 
   if (wantsIntraday) {
@@ -916,6 +1002,17 @@ function runAiQuery(query, options = {}) {
     scoreConfig = { momentum: 1.25, safety: wantsTrapProtection ? 1.2 : 0.9, carry: 0.45, sessionBoost: "intraday" };
     filter = stock => stock.session === "intraday" || stock.quality >= 82;
     title = "Intraday opportunities";
+    classicFilters.session = "intraday";
+    classicFilters.sortBy = "momentum";
+    classicFilters.minMomentum = wantsLowRisk ? 72 : 76;
+    classicFilters.maxRisk = wantsLowRisk ? 40 : 48;
+    classicFilters.minRelativeVolume = wantsLowRisk ? 1.5 : 1.8;
+    classicFilters.minQuality = wantsLowRisk ? 72 : 68;
+    classicFilters.maxPrice = wantsLowRisk ? 160 : 90;
+    classicFilters.formulaRules = [
+      { id: createRuleId(), field: "drivePct", operator: ">=", value: wantsLowRisk ? "0.2" : "0.45", negate: false },
+      { id: createRuleId(), field: "gap", operator: ">=", value: "0.5", negate: false },
+    ];
     intentChips = wantsLowRisk
       ? ["Intraday horizon", "Quality bias", "Trap control"]
       : ["Intraday horizon", "Momentum-first", "Open-drive bias"];
@@ -928,6 +1025,17 @@ function runAiQuery(query, options = {}) {
     filter = stock => stock.session !== "intraday" || stock.carry >= 72;
     title = "Overnight candidates";
     intentChips = ["Overnight hold", "Carry strength", "Cleaner close"];
+    classicFilters.session = "overnight";
+    classicFilters.sortBy = "score";
+    classicFilters.maxRisk = 34;
+    classicFilters.minRelativeVolume = 1.2;
+    classicFilters.minQuality = 74;
+    classicFilters.marketCap = "Mega cap";
+    classicFilters.minPrice = 20;
+    classicFilters.formulaRules = [
+      { id: createRuleId(), field: "carry", operator: ">=", value: "74", negate: false },
+      { id: createRuleId(), field: "vwapDrift", operator: ">=", value: "-0.3", negate: false },
+    ];
   }
 
   if (wantsSwing) {
@@ -937,6 +1045,17 @@ function runAiQuery(query, options = {}) {
     filter = stock => stock.session === "swing" || stock.carry >= 76;
     title = "Swing candidates";
     intentChips = ["Swing horizon", "Trend continuity", "Quality over noise"];
+    classicFilters.session = "swing";
+    classicFilters.sortBy = "quality";
+    classicFilters.maxRisk = 38;
+    classicFilters.minRelativeVolume = 1.2;
+    classicFilters.minQuality = 76;
+    classicFilters.marketCap = "Mega cap";
+    classicFilters.minPrice = 20;
+    classicFilters.formulaRules = [
+      { id: createRuleId(), field: "carry", operator: ">=", value: "76", negate: false },
+      { id: createRuleId(), field: "quality", operator: ">=", value: "78", negate: false },
+    ];
   }
 
   if (wantsVolume) {
@@ -944,12 +1063,22 @@ function runAiQuery(query, options = {}) {
     description = `${description} Relative volume is weighted more heavily.`;
     intentChips = [...intentChips, "Volume confirmation"];
     rationale[2] = "Relative volume got an extra boost, so names without real participation should drop behind cleaner tape.";
+    classicFilters.minRelativeVolume = Math.max(classicFilters.minRelativeVolume, 1.8);
+    classicFilters.formulaRules = [
+      ...classicFilters.formulaRules,
+      { id: createRuleId(), field: "turnover", operator: ">=", value: "8000000", negate: false },
+    ];
   }
 
   if (wantsTrapProtection) {
     scoreConfig.safety += 0.14;
     intentChips = [...intentChips, "Trap penalty"];
     rationale[1] = "Trap protection is active, so wide-opening spikes and poor hold behavior get penalized more aggressively.";
+    classicFilters.maxRisk = Math.min(classicFilters.maxRisk, 42);
+    classicFilters.formulaRules = [
+      ...classicFilters.formulaRules,
+      { id: createRuleId(), field: "closePosition", operator: ">=", value: "0.55", negate: false },
+    ];
   }
 
   const window =
@@ -1009,6 +1138,7 @@ function runAiQuery(query, options = {}) {
         ? "Local heuristic fallback is active for this scan."
         : "Heuristic parser active until a server-side OpenAI key is configured.",
   };
+  setClassicFiltersFromAi(classicFilters);
   elements.aiSummary.textContent = `${label} profile active. ${description}`;
   render();
 }
@@ -1072,6 +1202,35 @@ function applyStructuredAiProfile(profile, payload = {}) {
     model: payload.model || state.apiConfig.aiParser?.model || "",
     note: `${payload.provider || "OpenAI Responses"} structured parsing drove this profile${payload.model ? ` using ${payload.model}` : ""}. SignalDeck still applies its own transparent ranking engine on top.`,
   };
+  setClassicFiltersFromAi({
+    session: sessionBias,
+    minMomentum: sessionBias === "intraday" ? 74 : sessionBias === "swing" ? 66 : 62,
+    maxRisk:
+      cleanAiText(profile?.riskBias, "Balanced").toLowerCase() === "conservative"
+        ? 34
+        : cleanAiText(profile?.riskBias, "Balanced").toLowerCase() === "aggressive"
+          ? 54
+          : 44,
+    minRelativeVolume,
+    sector: "all",
+    marketCap: "all",
+    minQuality,
+    sortBy: sessionBias === "intraday" ? "momentum" : sessionBias === "swing" ? "quality" : "score",
+    minPrice: priceMin,
+    maxPrice,
+    theme: "all",
+    groupMode: "AND",
+    formulaRules: [
+      ...(sessionBias === "intraday"
+        ? [{ id: createRuleId(), field: "drivePct", operator: ">=", value: "0.25", negate: false }]
+        : sessionBias === "overnight" || sessionBias === "swing"
+          ? [{ id: createRuleId(), field: "carry", operator: ">=", value: "72", negate: false }]
+          : []),
+      ...(minRelativeVolume >= 1.6
+        ? [{ id: createRuleId(), field: "turnover", operator: ">=", value: "8000000", negate: false }]
+        : []),
+    ],
+  });
 }
 
 async function refreshMarketData(options = {}) {
@@ -1336,12 +1495,10 @@ function render() {
 
   renderAuthState();
   renderFormulaRules();
-  [...document.querySelectorAll(".formula-remove")].forEach(button => {
-    button.innerHTML = "&times;";
-  });
   renderSurfaceState();
   renderPulseStrip(ranked);
   renderScanDigest(ranked);
+  renderFilterChips();
   renderWatchlist();
   renderBrief(ranked);
   renderOpportunityList(ranked);
@@ -1349,6 +1506,9 @@ function render() {
   renderInspector(ranked);
   renderExecutionMap(ranked);
   renderConnectionState();
+  elements.resultsSurface.dataset.view = state.resultsView;
+  elements.viewTable.classList.toggle("active", state.resultsView === "table");
+  elements.viewCards.classList.toggle("active", state.resultsView === "cards");
   elements.lastUpdated.textContent = state.lastUpdatedAt
     ? `Updated ${new Date(state.lastUpdatedAt).toLocaleTimeString([], {
         hour: "2-digit",
@@ -1363,23 +1523,22 @@ function renderAuthState() {
     button.classList.toggle("active", button.dataset.authMode === state.authMode);
   });
 
-  elements.accountDrawer.hidden = !state.accountMenuOpen;
+  elements.authModal.hidden = !state.authModalOpen;
+  elements.dataModal.hidden = !state.dataModalOpen;
+  elements.accountDrawer.hidden = !state.accountMenuOpen || !state.currentUser;
   elements.accountTrigger.setAttribute("aria-expanded", String(state.accountMenuOpen));
   elements.accountAvatar.textContent = getAccountInitials(state.currentUser);
 
   if (state.currentUser) {
     elements.accountBadge.textContent = getAccountLabel(state.currentUser);
     elements.topbarAccount.textContent = getAccountLabel(state.currentUser);
-    elements.accountCopy.textContent = "Signed in on this browser. Watchlists and saved state now follow your profile.";
+    elements.accountCopy.textContent = state.currentUser.email_confirmed_at
+      ? "Signed in. Watchlists and saved state now follow your profile."
+      : "Account created. Confirm your email to fully activate cross-device access.";
     elements.watchlistNote.textContent =
       "Signed-in mode syncs this watchlist to your account, so it follows you after login.";
     elements.topbarSignIn.hidden = true;
     elements.topbarRegister.hidden = true;
-    elements.authToggle.hidden = true;
-    elements.authEmailWrap.hidden = true;
-    elements.authPasswordWrap.hidden = true;
-    elements.authSubmit.hidden = true;
-    elements.authGoogle.hidden = true;
     elements.authLogout.hidden = false;
     elements.authEmail.disabled = true;
     elements.authPassword.disabled = true;
@@ -1398,11 +1557,6 @@ function renderAuthState() {
       "Guest mode keeps this list in this browser. Sign in to sync it to your account.";
     elements.topbarSignIn.hidden = false;
     elements.topbarRegister.hidden = false;
-    elements.authToggle.hidden = false;
-    elements.authEmailWrap.hidden = false;
-    elements.authPasswordWrap.hidden = false;
-    elements.authSubmit.hidden = false;
-    elements.authGoogle.hidden = false;
     elements.authLogout.hidden = true;
     elements.authEmail.disabled = false;
     elements.authPassword.disabled = false;
@@ -1412,6 +1566,12 @@ function renderAuthState() {
     elements.authSubmit.textContent = state.authMode === "register" ? "Create account" : "Sign in";
     elements.authMessage.textContent = state.authMessage;
   }
+
+  elements.authToggle.hidden = false;
+  elements.authEmailWrap.hidden = false;
+  elements.authPasswordWrap.hidden = false;
+  elements.authSubmit.hidden = false;
+  elements.authGoogle.hidden = false;
 }
 
 function renderSurfaceState() {
@@ -1425,7 +1585,7 @@ function renderSurfaceState() {
     : state.aiRuntime.note;
 }
 
-function renderFormulaRules() {
+function renderFormulaRulesLegacy() {
   const rules = sanitizeFormulaRules(state.classicFilters.formulaRules);
   state.classicFilters.formulaRules = rules;
 
@@ -1435,7 +1595,12 @@ function renderFormulaRules() {
     : "No formula rules yet. Add a rule, choose AND/OR/NAND/NOR, and invert any block with NOT.";
 
   if (!rules.length) {
-    elements.formulaRuleList.innerHTML = `<p class="muted">No custom rules yet.</p>`;
+    elements.formulaRuleList.innerHTML = `
+      <div class="formula-empty">
+        <p class="muted">No custom rules yet.</p>
+        <p class="muted small-note">Add a rule to stack supported fields like gap, turnover, VWAP proxy, or range.</p>
+      </div>
+    `;
     return;
   }
 
@@ -1495,7 +1660,87 @@ function renderFormulaRules() {
       state.classicFilters.formulaRules = state.classicFilters.formulaRules.filter(
         rule => rule.id !== button.dataset.removeRule,
       );
-      renderFormulaRules();
+      applyClassicFilters();
+    });
+  });
+  [...elements.formulaRuleList.querySelectorAll("[data-remove-rule]")].forEach(button => {
+    button.textContent = "x";
+  });
+}
+
+function renderFormulaRules() {
+  const rules = sanitizeFormulaRules(state.classicFilters.formulaRules);
+  state.classicFilters.formulaRules = rules;
+
+  const mode = String(state.classicFilters.groupMode || "AND").toUpperCase();
+  elements.formulaSummary.textContent = rules.length
+    ? `${rules.length} rule${rules.length === 1 ? "" : "s"} active. Group logic is ${mode}, and each rule can be inverted with NOT.`
+    : "No formula rules yet. Add a rule, choose AND/OR/NAND/NOR, and invert any block with NOT.";
+
+  if (!rules.length) {
+    elements.formulaRuleList.innerHTML = `
+      <div class="formula-empty">
+        <p class="muted">No custom rules yet.</p>
+        <p class="muted small-note">Add a rule to stack supported fields like gap, turnover, VWAP proxy, or range.</p>
+      </div>
+    `;
+    return;
+  }
+
+  elements.formulaRuleList.innerHTML = rules
+    .map(
+      rule => `
+        <div class="formula-rule" data-rule-id="${rule.id}">
+          <label class="rule-negate">
+            <span class="section-label">NOT</span>
+            <input data-rule-prop="negate" type="checkbox" ${rule.negate ? "checked" : ""} />
+          </label>
+          <label>
+            <span class="section-label">Field</span>
+            <select data-rule-prop="field">
+              ${FORMULA_FIELDS.map(
+                field => `<option value="${field.key}" ${field.key === rule.field ? "selected" : ""}>${field.label}</option>`,
+              ).join("")}
+            </select>
+          </label>
+          <label>
+            <span class="section-label">Operator</span>
+            <select data-rule-prop="operator">
+              ${getOperatorsForRule(rule)
+                .map(
+                  operator =>
+                    `<option value="${operator}" ${operator === rule.operator ? "selected" : ""}>${operator}</option>`,
+                )
+                .join("")}
+            </select>
+          </label>
+          <label>
+            <span class="section-label">Value</span>
+            <input data-rule-prop="value" type="${getFormulaFieldMeta(rule.field)?.type === "text" ? "text" : "number"}" step="any" value="${rule.value}" />
+          </label>
+          <button class="formula-remove" data-remove-rule="${rule.id}" type="button" aria-label="Remove rule">x</button>
+        </div>
+      `,
+    )
+    .join("");
+
+  [...elements.formulaRuleList.querySelectorAll("[data-rule-prop]")].forEach(control => {
+    const eventName = control.matches("select") || control.type === "checkbox" ? "change" : "input";
+    control.addEventListener(eventName, event => {
+      const row = event.target.closest("[data-rule-id]");
+      const ruleId = row?.dataset.ruleId;
+      const prop = event.target.dataset.ruleProp;
+      const nextValue = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+      updateFormulaRule(ruleId, prop, nextValue);
+    });
+  });
+
+  [...elements.formulaRuleList.querySelectorAll("[data-remove-rule]")].forEach(button => {
+    button.addEventListener("click", () => {
+      state.classicFilters.formulaRules = state.classicFilters.formulaRules.filter(
+        rule => rule.id !== button.dataset.removeRule,
+      );
+      applyClassicFilters();
     });
   });
 }
@@ -1637,6 +1882,120 @@ function renderScanDigest(ranked) {
   elements.aiRationale.innerHTML = lines.map(line => `<li>${line}</li>`).join("");
 }
 
+function renderFilterChips() {
+  const defaults = getDefaultClassicFilters();
+  const chips = [
+    { key: "profile", label: `Profile: ${state.profile.label}`, removable: false },
+    { key: "session", label: state.classicFilters.session === "all" ? "Any session" : toTitleCase(state.classicFilters.session), removable: state.classicFilters.session !== defaults.session },
+    { key: "minMomentum", label: `Momentum >= ${state.classicFilters.minMomentum}`, removable: state.classicFilters.minMomentum !== defaults.minMomentum },
+    { key: "maxRisk", label: `Risk <= ${state.classicFilters.maxRisk}`, removable: state.classicFilters.maxRisk !== defaults.maxRisk },
+    { key: "minRelativeVolume", label: `Rel vol >= ${state.classicFilters.minRelativeVolume.toFixed(1)}x`, removable: state.classicFilters.minRelativeVolume !== defaults.minRelativeVolume },
+    { key: "minQuality", label: `Quality >= ${state.classicFilters.minQuality}`, removable: state.classicFilters.minQuality !== defaults.minQuality },
+  ];
+
+  if (state.classicFilters.minPrice !== defaults.minPrice || state.classicFilters.maxPrice !== defaults.maxPrice) {
+    chips.push({
+      key: "priceRange",
+      label: `Price ${state.classicFilters.minPrice}-${state.classicFilters.maxPrice}`,
+      removable: true,
+    });
+  }
+  if (state.classicFilters.sector !== "all") {
+    chips.push({ key: "sector", label: state.classicFilters.sector, removable: true });
+  }
+  if (state.classicFilters.marketCap !== "all") {
+    chips.push({ key: "marketCap", label: state.classicFilters.marketCap, removable: true });
+  }
+  if (state.classicFilters.theme !== "all") {
+    chips.push({ key: "theme", label: state.classicFilters.theme, removable: true });
+  }
+  if (state.classicFilters.formulaRules.length) {
+    chips.push({
+      key: "formulaRules",
+      label: `${state.classicFilters.groupMode} with ${state.classicFilters.formulaRules.length} rule${state.classicFilters.formulaRules.length === 1 ? "" : "s"}`,
+      removable: true,
+    });
+  }
+
+  elements.filterChipBar.innerHTML = chips
+    .map(
+      chip => `
+        <div class="filter-chip">
+          <button class="chip-main" type="button" data-chip-key="${chip.key}">${chip.label}</button>
+          ${chip.removable ? `<button type="button" data-chip-clear="${chip.key}" aria-label="Clear ${chip.label}">x</button>` : ""}
+        </div>
+      `,
+    )
+    .join("");
+
+  elements.filterChipMeta.textContent = `${
+    state.aiRuntime.source === "openai" ? "Server AI" : "Local parser"
+  } translated the current prompt into a ${state.profile.meta.riskBias.toLowerCase()} screen with ${
+    state.classicFilters.groupMode
+  } logic and ${state.classicFilters.formulaRules.length} custom rule${
+    state.classicFilters.formulaRules.length === 1 ? "" : "s"
+  }.`;
+
+  [...elements.filterChipBar.querySelectorAll("[data-chip-key]")].forEach(button => {
+    button.addEventListener("click", () => {
+      if (button.dataset.chipKey !== "profile" && state.surfaceMode !== "classic") {
+        setSurfaceMode("classic");
+      }
+    });
+  });
+
+  [...elements.filterChipBar.querySelectorAll("[data-chip-clear]")].forEach(button => {
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      resetFilterChip(button.dataset.chipClear);
+    });
+  });
+}
+
+function resetFilterChip(key) {
+  const defaults = getDefaultClassicFilters();
+  switch (key) {
+    case "session":
+      state.classicFilters.session = defaults.session;
+      break;
+    case "minMomentum":
+      state.classicFilters.minMomentum = defaults.minMomentum;
+      break;
+    case "maxRisk":
+      state.classicFilters.maxRisk = defaults.maxRisk;
+      break;
+    case "minRelativeVolume":
+      state.classicFilters.minRelativeVolume = defaults.minRelativeVolume;
+      break;
+    case "minQuality":
+      state.classicFilters.minQuality = defaults.minQuality;
+      break;
+    case "priceRange":
+      state.classicFilters.minPrice = defaults.minPrice;
+      state.classicFilters.maxPrice = defaults.maxPrice;
+      break;
+    case "sector":
+      state.classicFilters.sector = defaults.sector;
+      break;
+    case "marketCap":
+      state.classicFilters.marketCap = defaults.marketCap;
+      break;
+    case "theme":
+      state.classicFilters.theme = defaults.theme;
+      break;
+    case "formulaRules":
+      state.classicFilters.formulaRules = [];
+      state.classicFilters.groupMode = defaults.groupMode;
+      break;
+    default:
+      break;
+  }
+
+  syncClassicControls();
+  renderFormulaRules();
+  render();
+}
+
 function renderBrief(ranked) {
   const liveUniverse = getLiveUniverse().map(stock => ({ ...stock, score: state.profile.score(stock) }));
   const top = ranked[0] || [...liveUniverse].sort(compareRankedStocks)[0];
@@ -1677,7 +2036,7 @@ function renderBrief(ranked) {
     .join("");
 }
 
-function renderOpportunityList(ranked) {
+function renderOpportunityListLegacy(ranked) {
   elements.resultsTitle.textContent = state.profile.title;
   elements.resultsMeta.textContent = `${ranked.length} exact matches`;
 
@@ -1750,6 +2109,153 @@ function renderOpportunityList(ranked) {
       } else {
         render();
       }
+    });
+  });
+
+  [...elements.opportunityList.querySelectorAll("[data-save-symbol]")].forEach(button => {
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      toggleWatchlist(button.dataset.saveSymbol);
+    });
+  });
+}
+
+function renderOpportunityList(ranked) {
+  elements.resultsTitle.textContent = state.profile.title;
+  elements.resultsMeta.textContent = `${ranked.length} exact matches · ${
+    state.resultsView === "table" ? "Table view" : "Card view"
+  }`;
+
+  if (!ranked.length) {
+    const nearMisses = getLiveUniverse()
+      .map(stock => ({ ...stock, score: state.profile.score(stock) }))
+      .sort(compareRankedStocks)
+      .slice(0, 3);
+
+    elements.opportunityList.innerHTML = `
+      <div class="opportunity-empty">
+        <div class="ticker-meta">
+          <strong>No exact matches yet</strong>
+          <span>${state.loadError || "The current screen is strict. Review the closest live names below or widen the filters."}</span>
+        </div>
+        <div class="near-miss-list">
+          ${nearMisses.length
+            ? nearMisses
+                .map(
+                  stock => `
+                    <button class="near-miss-chip" data-symbol="${stock.symbol}">
+                      <strong>${stock.symbol}</strong>
+                      <span>${stock.score} score · ${stock.relativeVolume.toFixed(1)}x rel vol</span>
+                    </button>
+                  `,
+                )
+                .join("")
+            : `<p class="muted">Connect a market-data key or wait for the next refresh.</p>`}
+        </div>
+      </div>
+    `;
+
+    [...elements.opportunityList.querySelectorAll("[data-symbol]")].forEach(button => {
+      button.addEventListener("click", async () => {
+        state.selectedSymbol = button.dataset.symbol;
+        if (!state.historyMap[state.selectedSymbol]) {
+          await loadHistory(state.selectedSymbol);
+        } else {
+          render();
+        }
+      });
+    });
+    return;
+  }
+
+  if (state.resultsView === "cards") {
+    elements.opportunityList.innerHTML = ranked
+      .map(
+        stock => `
+          <article class="trade-card ${stock.symbol === state.selectedSymbol ? "active" : ""}" data-symbol="${stock.symbol}" role="button" tabindex="0">
+            <div class="trade-card-head">
+              <div class="ticker-meta">
+                <strong>${stock.symbol}</strong>
+                <span>${stock.name}</span>
+              </div>
+              <button class="save-button ${state.watchlist.includes(stock.symbol) ? "saved" : ""}" data-save-symbol="${stock.symbol}" type="button">
+                ${state.watchlist.includes(stock.symbol) ? "saved" : "save"}
+              </button>
+            </div>
+            <div class="trade-card-metrics">
+              <strong>$${stock.price.toFixed(2)}</strong>
+              <span class="${stock.changePct >= 0 ? "positive" : "negative"}">${formatSigned(stock.changePct)}%</span>
+            </div>
+            <div class="trade-card-grid">
+              <div>
+                <span>Relative volume</span>
+                <strong>${stock.relativeVolume.toFixed(1)}x</strong>
+              </div>
+              <div>
+                <span>Momentum</span>
+                <strong>${stock.momentum}</strong>
+              </div>
+              <div>
+                <span>Risk</span>
+                <strong>${stock.risk}</strong>
+              </div>
+              <div>
+                <span>Score</span>
+                <strong>${stock.score}</strong>
+              </div>
+            </div>
+          </article>
+        `,
+      )
+      .join("");
+  } else {
+    elements.opportunityList.innerHTML = ranked
+      .map(
+        stock => `
+          <div class="trade-row ${stock.symbol === state.selectedSymbol ? "active" : ""}" data-symbol="${stock.symbol}" role="button" tabindex="0">
+            <span class="save-cell">
+              <button class="save-button ${state.watchlist.includes(stock.symbol) ? "saved" : ""}" data-save-symbol="${stock.symbol}" type="button">
+                ${state.watchlist.includes(stock.symbol) ? "saved" : "save"}
+              </button>
+            </span>
+            <div class="ticker-meta">
+              <strong>${stock.symbol}</strong>
+              <span>${stock.name}</span>
+            </div>
+            <div>$${stock.price.toFixed(2)}</div>
+            <div class="${stock.changePct >= 0 ? "positive" : "negative"}">${formatSigned(stock.changePct)}%</div>
+            <div>${stock.relativeVolume.toFixed(1)}x</div>
+            <div>${stock.momentum}</div>
+            <div>${stock.risk}</div>
+            <div><span class="score-pill">${stock.score}</span></div>
+          </div>
+        `,
+      )
+      .join("");
+  }
+
+  const handleRowSelect = async symbol => {
+    state.selectedSymbol = symbol;
+    if (!state.historyMap[state.selectedSymbol]) {
+      await loadHistory(state.selectedSymbol);
+    } else {
+      render();
+    }
+  };
+
+  [...elements.opportunityList.querySelectorAll("[data-symbol]")].forEach(row => {
+    row.addEventListener("click", async event => {
+      if (event.target.closest("[data-save-symbol]")) {
+        return;
+      }
+      await handleRowSelect(row.dataset.symbol);
+    });
+    row.addEventListener("keydown", async event => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+      event.preventDefault();
+      await handleRowSelect(row.dataset.symbol);
     });
   });
 

@@ -13,394 +13,349 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="app-shell">
-      <aside class="rail">
-        <div class="brand-lockup">
+    <div class="terminal-app">
+      <header class="topbar">
+        <div class="topbar-brand">
           <div class="brand-mark">SD</div>
           <div>
             <p class="eyebrow">SignalDeck</p>
-            <h1>Market intelligence for high-conviction setups.</h1>
+            <strong>AI market terminal</strong>
           </div>
         </div>
 
-        <nav class="rail-section">
-          <p class="section-label">Quick prompts</p>
-          <button class="prompt-pill" data-prompt="Find intraday names with strong momentum and low trap risk.">
-            Intraday strength
-          </button>
-          <button class="prompt-pill" data-prompt="Show lower-risk overnight candidates with healthy liquidity.">
-            Overnight carry
-          </button>
-          <button class="prompt-pill" data-prompt="Identify blue-chip swing setups with solid continuation.">
-            Blue-chip swing
-          </button>
-          <button class="prompt-pill" data-prompt="Scan for names with expanding volume but controlled downside.">
-            Volume expansion
-          </button>
-        </nav>
-
-        <section class="rail-section">
-          <p class="section-label">Data connection</p>
-          <p class="muted" id="connection-state">
-            Connect a free market-data key to replace the prototype feed with live quote snapshots.
-          </p>
-          <label class="api-key-wrap" for="api-key-input">
-            <span class="section-label">API key</span>
-            <input id="api-key-input" type="password" placeholder="Paste your Twelve Data API key" />
-          </label>
-          <button class="primary-button secondary-button" id="save-api-key">Save key</button>
-          <p class="muted small-note" id="data-source-note">
-            Public deploys should use a server environment variable instead of a client-stored key.
-          </p>
-        </section>
-
-        <section class="rail-section">
-          <p class="section-label">System notes</p>
-          <ul class="rail-list">
-            <li>AI mode translates natural language into a setup profile.</li>
-            <li>Classic mode exposes transparent filters and ranking logic.</li>
-            <li>Real quotes come from a small tracked universe to fit free API credit limits.</li>
-          </ul>
-        </section>
-
-        <section class="rail-section">
-          <div class="watchlist-head">
-            <p class="section-label">Watchlist</p>
-            <span class="mono" id="watchlist-count">0 saved</span>
-          </div>
-          <p class="muted small-note" id="watchlist-note">
-            Guest mode keeps this list in this browser. Sign in to sync it to your account.
-          </p>
-          <div class="watchlist-list" id="watchlist-list"></div>
-        </section>
-
-        <section class="rail-section rail-footer">
-          <p class="section-label">Positioning</p>
-          <p class="muted">
-            Built as a front-end prototype for a real financial product, focused on discovery,
-            ranking, and risk explanation rather than blind price prediction.
-          </p>
-        </section>
-      </aside>
-
-      <main class="workspace">
-        <header class="topbar">
-          <div class="topbar-nav">
-            <div class="nav-mark">
-              <p class="eyebrow">SignalDeck</p>
-              <span class="nav-caption">AI market terminal</span>
-            </div>
-            <div class="topbar-actions">
-              <button class="primary-button topbar-refresh" id="refresh-market">Refresh market</button>
-              <div class="status-cluster">
-                <span class="status-dot"></span>
-                <div class="status-copy">
-                  <span id="feed-status-text">Waiting for market data connection</span>
-                  <span class="mono time-stamp" id="last-updated">Waiting for first data pull</span>
-                </div>
-              </div>
-              <div class="account-shell">
-                <div class="auth-quick-row">
-                  <button class="ghost-button quick-auth-button" id="topbar-signin">Sign in</button>
-                  <button class="ghost-button quick-auth-button" id="topbar-register">Register</button>
-                </div>
-                <button class="account-trigger" id="account-trigger" type="button" aria-expanded="false">
-                  <span class="sr-only" id="topbar-account">Guest mode</span>
-                  <span class="account-avatar" id="account-avatar">G</span>
-                </button>
-                <div class="account-drawer" id="account-drawer" hidden>
-                  <div class="account-drawer-head">
-                    <div>
-                      <p class="section-label">Account</p>
-                      <h3 id="account-badge">Guest</h3>
-                    </div>
-                    <p class="muted small-note" id="account-copy">
-                      Create an account to keep watchlists and saved state tied to your profile.
-                    </p>
-                  </div>
-                  <div class="auth-toggle" id="auth-toggle">
-                    <button class="auth-tab active" data-auth-mode="login">Sign in</button>
-                    <button class="auth-tab" data-auth-mode="register">Register</button>
-                  </div>
-                  <div class="auth-stack">
-                    <label class="api-key-wrap" for="auth-email" id="auth-email-wrap">
-                      <span class="section-label">Email</span>
-                      <input id="auth-email" type="email" placeholder="you@example.com" />
-                    </label>
-                    <label class="api-key-wrap" for="auth-password" id="auth-password-wrap">
-                      <span class="section-label">Password</span>
-                      <input id="auth-password" type="password" placeholder="At least 8 characters" />
-                    </label>
-                    <div class="auth-actions">
-                      <button class="primary-button secondary-button" id="auth-submit">Sign in</button>
-                      <button class="ghost-button" id="auth-google">Continue with Google</button>
-                      <button class="ghost-button" id="auth-logout" hidden>Sign out</button>
-                    </div>
-                    <p class="muted small-note" id="auth-message">
-                      Guest mode stores watchlists only in this browser.
-                    </p>
-                  </div>
-                </div>
-              </div>
+        <div class="topbar-center">
+          <div class="status-cluster">
+            <span class="status-dot"></span>
+            <div class="status-copy">
+              <span id="feed-status-text">Waiting for market data connection</span>
+              <span class="mono time-stamp" id="last-updated">Waiting for first data pull</span>
             </div>
           </div>
-          <div class="topbar-hero">
-            <div class="hero-copy">
-              <p class="eyebrow">Live market scanner</p>
-              <h2 class="hero-title">SignalDeck turns market noise into a shared intelligence surface.</h2>
-              <p class="topbar-copy">
-                AI-guided discovery built on live quotes, explainable ranking, and transparent risk
-                filters.
+        </div>
+
+        <div class="topbar-actions">
+          <button class="ghost-button topbar-settings" id="topbar-settings" type="button">Data source</button>
+          <button class="primary-button topbar-refresh" id="refresh-market" type="button">Refresh market</button>
+          <div class="auth-quick-row">
+            <button class="ghost-button quick-auth-button" id="topbar-signin" type="button">Sign in</button>
+            <button class="ghost-button quick-auth-button" id="topbar-register" type="button">Register</button>
+          </div>
+          <div class="account-shell">
+            <button class="account-trigger" id="account-trigger" type="button" aria-expanded="false">
+              <span class="sr-only" id="topbar-account">Guest mode</span>
+              <span class="account-avatar" id="account-avatar">G</span>
+            </button>
+            <div class="account-drawer" id="account-drawer" hidden>
+              <p class="section-label">Account</p>
+              <h3 id="account-badge">Guest mode</h3>
+              <p class="muted small-note" id="account-copy">
+                Create an account to keep watchlists and saved state tied to your profile.
               </p>
+              <button class="ghost-button" id="auth-logout" hidden type="button">Sign out</button>
             </div>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <section class="pulse-strip" id="pulse-strip"></section>
+      <div class="terminal-grid">
+        <aside class="rail">
+          <div class="rail-brand">
+            <p class="eyebrow">Desk</p>
+            <h1>SignalDeck</h1>
+            <p class="muted">Real-data stock scanning with explainable ranking and operator-first filters.</p>
+          </div>
 
-        <section class="control-surface">
-          <div class="surface-header">
-            <div class="mode-switch">
-              <button class="surface-tab active" data-mode="ai">AI Mode</button>
-              <button class="surface-tab" data-mode="classic">Classic Mode</button>
+          <section class="rail-section">
+            <div class="rail-head">
+              <p class="section-label">Quick prompts</p>
+              <span class="mono">AI</span>
             </div>
-            <p class="muted" id="surface-caption">
-              Translate plain English goals into a market scan profile.
+            <button class="prompt-pill" data-prompt="Find intraday names with strong momentum and low trap risk.">
+              Intraday strength
+            </button>
+            <button class="prompt-pill" data-prompt="Show lower-risk overnight candidates with healthy liquidity.">
+              Overnight carry
+            </button>
+            <button class="prompt-pill" data-prompt="Identify blue-chip swing setups with solid continuation.">
+              Blue-chip swing
+            </button>
+            <button class="prompt-pill" data-prompt="Scan for names with expanding volume but controlled downside.">
+              Volume expansion
+            </button>
+          </section>
+
+          <section class="rail-section">
+            <div class="watchlist-head">
+              <p class="section-label">Watchlist</p>
+              <span class="mono" id="watchlist-count">0 saved</span>
+            </div>
+            <p class="muted small-note" id="watchlist-note">
+              Guest mode keeps this list in this browser. Sign in to sync it to your account.
             </p>
-          </div>
+            <div class="watchlist-list" id="watchlist-list"></div>
+          </section>
 
-          <div class="surface-body">
-            <section class="query-panel mode-panel active" data-panel="ai">
-              <label class="section-label" for="ai-query">Prompt the market scanner</label>
-              <textarea id="ai-query" rows="4">
+          <section class="rail-section rail-note">
+            <p class="section-label">System note</p>
+            <p class="muted" id="connection-state">
+              SignalDeck is running in free-tier demo mode with a curated universe and shared cached snapshots.
+            </p>
+          </section>
+        </aside>
+
+        <main class="workspace">
+          <section class="pulse-strip" id="pulse-strip"></section>
+
+          <section class="scan-station">
+            <div class="surface-header">
+              <div class="mode-switch">
+                <button class="surface-tab active" data-mode="ai" type="button">AI Mode</button>
+                <button class="surface-tab" data-mode="classic" type="button">Classic Mode</button>
+              </div>
+              <p class="muted" id="surface-caption">Translate plain English goals into a market scan profile.</p>
+            </div>
+
+            <div class="surface-body">
+              <section class="query-panel mode-panel active" data-panel="ai">
+                <label class="section-label" for="ai-query">Prompt the market scanner</label>
+                <textarea id="ai-query" rows="4">
 Find intraday names that can open strong, keep trend quality through the session, and avoid obvious gap-and-fade traps.</textarea
-              >
-              <div class="action-row">
-                <button class="primary-button" id="run-ai">Run AI scan</button>
-                <div class="action-copy">
-                  <p class="muted" id="ai-summary">Balanced momentum profile with trap-risk penalty enabled.</p>
-                  <p class="muted small-note" id="ai-provider-note">
-                    Heuristic parser active until a server-side OpenAI key is configured.
+                >
+                <div class="action-row">
+                  <button class="primary-button" id="run-ai" type="button">Run AI scan</button>
+                  <div class="action-copy">
+                    <p class="muted" id="ai-summary">Balanced momentum profile with trap-risk penalty enabled.</p>
+                    <p class="muted small-note" id="ai-provider-note">
+                      Heuristic parser active until a server-side OpenAI key is configured.
+                    </p>
+                  </div>
+                </div>
+                <div class="ai-digest">
+                  <article class="digest-card">
+                    <p class="section-label">Profile signals</p>
+                    <div class="intent-chip-row" id="intent-chips"></div>
+                  </article>
+                  <article class="digest-card">
+                    <p class="section-label">Why the scan shifted</p>
+                    <ul class="digest-list" id="ai-rationale"></ul>
+                  </article>
+                </div>
+              </section>
+
+              <section class="filters-panel mode-panel" data-panel="classic">
+                <section class="preset-panel">
+                  <div class="panel-header compact-header">
+                    <div>
+                      <p class="section-label">Screen presets</p>
+                      <h3>Start with tactical templates, then refine the screen.</h3>
+                    </div>
+                  </div>
+                  <div class="preset-grid">
+                    <button class="preset-chip" type="button" data-preset="opening-drive">Opening drive</button>
+                    <button class="preset-chip" type="button" data-preset="vwap-reclaim">VWAP reclaim</button>
+                    <button class="preset-chip" type="button" data-preset="liquidity-sweep">Liquidity sweep</button>
+                    <button class="preset-chip" type="button" data-preset="clean-carry">Clean carry</button>
+                  </div>
+                  <p class="muted small-note" id="preset-summary">
+                    Templates prefill classic filters and formula rules. VWAP is currently a quote-structure proxy, not full tick-derived VWAP.
+                  </p>
+                </section>
+
+                <div class="filters-grid">
+                  <label>
+                    <span class="section-label">Session</span>
+                    <select id="session-filter">
+                      <option value="all">All setups</option>
+                      <option value="intraday">Intraday focus</option>
+                      <option value="overnight">Overnight focus</option>
+                      <option value="swing">Swing focus</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span class="section-label">Minimum momentum</span>
+                    <input id="momentum-filter" type="range" min="40" max="95" value="68" />
+                    <span class="range-value" id="momentum-value">68</span>
+                  </label>
+
+                  <label>
+                    <span class="section-label">Maximum risk</span>
+                    <input id="risk-filter" type="range" min="20" max="80" value="48" />
+                    <span class="range-value" id="risk-value">48</span>
+                  </label>
+
+                  <label>
+                    <span class="section-label">Minimum relative volume</span>
+                    <input id="volume-filter" type="range" min="10" max="30" value="15" />
+                    <span class="range-value" id="volume-value">1.5x</span>
+                  </label>
+
+                  <label>
+                    <span class="section-label">Minimum quality</span>
+                    <input id="quality-filter" type="range" min="55" max="95" value="70" />
+                    <span class="range-value" id="quality-value">70</span>
+                  </label>
+
+                  <label>
+                    <span class="section-label">Sort by</span>
+                    <select id="sort-filter">
+                      <option value="score">Best score</option>
+                      <option value="momentum">Highest momentum</option>
+                      <option value="quality">Highest quality</option>
+                      <option value="relativeVolume">Highest relative volume</option>
+                      <option value="risk">Lowest risk</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span class="section-label">Minimum price</span>
+                    <input id="price-min-filter" type="number" min="0" step="0.01" value="0" />
+                  </label>
+
+                  <label>
+                    <span class="section-label">Maximum price</span>
+                    <input id="price-max-filter" type="number" min="0" step="0.01" value="9999" />
+                  </label>
+
+                  <label>
+                    <span class="section-label">Sector</span>
+                    <select id="sector-filter">
+                      <option value="all">All sectors</option>
+                      <option value="Semiconductors">Semiconductors</option>
+                      <option value="Software">Software</option>
+                      <option value="Internet">Internet</option>
+                      <option value="Healthcare">Healthcare</option>
+                      <option value="Financials">Financials</option>
+                      <option value="Consumer">Consumer</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span class="section-label">Market cap</span>
+                    <select id="market-cap-filter">
+                      <option value="all">All caps</option>
+                      <option value="Mega cap">Mega cap</option>
+                      <option value="Large cap">Large cap</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span class="section-label">Theme</span>
+                    <select id="theme-filter">
+                      <option value="all">All themes</option>
+                      <option value="AI infrastructure">AI infrastructure</option>
+                      <option value="Platform leader">Platform leader</option>
+                      <option value="Acceleration trade">Acceleration trade</option>
+                      <option value="Digital ads">Digital ads</option>
+                      <option value="Infrastructure leadership">Infrastructure leadership</option>
+                      <option value="Defensive growth">Defensive growth</option>
+                      <option value="Rate resilience">Rate resilience</option>
+                      <option value="Defensive compounder">Defensive compounder</option>
+                    </select>
+                  </label>
+                </div>
+
+                <section class="formula-panel">
+                  <div class="formula-head">
+                    <div>
+                      <p class="section-label">Formula builder</p>
+                      <h3>Stack real supported fields with explicit logic.</h3>
+                    </div>
+                    <div class="formula-controls">
+                      <label class="logic-mode-wrap" for="logic-mode-filter">
+                        <span class="section-label">Group logic</span>
+                        <select id="logic-mode-filter">
+                          <option value="AND">AND</option>
+                          <option value="OR">OR</option>
+                          <option value="NAND">NAND</option>
+                          <option value="NOR">NOR</option>
+                        </select>
+                      </label>
+                      <button class="ghost-button compact-button" id="add-formula-rule" type="button">Add rule</button>
+                    </div>
+                  </div>
+                  <div class="formula-rule-list" id="formula-rule-list"></div>
+                  <p class="muted small-note" id="formula-summary">
+                    Rules can run through AND, OR, NAND, or NOR, and each block can be inverted with NOT.
+                  </p>
+                </section>
+
+                <div class="action-row">
+                  <button class="primary-button" id="apply-filters" type="button">Apply screen</button>
+                  <p class="muted">Classic mode gives operators direct control over every visible threshold.</p>
+                </div>
+              </section>
+            </div>
+
+            <section class="chip-surface">
+              <div class="chip-surface-head">
+                <div>
+                  <p class="section-label">Active screen</p>
+                  <h3>Visible filters and AI translation</h3>
+                </div>
+                <p class="muted small-note" id="filter-chip-meta">
+                  AI scans write into this filter stack so the operator can refine the screen explicitly.
+                </p>
+              </div>
+              <div class="filter-chip-bar" id="filter-chip-bar"></div>
+            </section>
+
+            <section class="brief-grid">
+              <section class="brief-panel">
+                <div class="panel-header">
+                  <div>
+                    <p class="section-label">AI interpretation</p>
+                    <h2 id="brief-headline">Opening strength with controlled downside.</h2>
+                  </div>
+                  <p class="mono" id="brief-window">First 90 minutes</p>
+                </div>
+                <p class="muted" id="brief-body">
+                  The scanner is prioritizing trend quality and participation over raw gap size, so names that keep buyers after the open should surface first.
+                </p>
+                <dl class="brief-metrics" id="brief-metrics"></dl>
+              </section>
+
+              <section class="weights-panel">
+                <div class="panel-header">
+                  <div>
+                    <p class="section-label">Ranking model</p>
+                    <h2>What drives the score</h2>
+                  </div>
+                  <p class="mono" id="weight-caption">Live profile</p>
+                </div>
+                <div class="weight-bars" id="weight-bars"></div>
+              </section>
+
+              <section class="spotlight-panel">
+                <div class="panel-header">
+                  <div>
+                    <p class="section-label">Current leader</p>
+                    <h2>Best expression right now</h2>
+                  </div>
+                  <p class="mono" id="spotlight-caption">Lead setup</p>
+                </div>
+                <div class="spotlight-copy">
+                  <p class="section-label">Lead symbol</p>
+                  <h3 id="spotlight-symbol">NVDA</h3>
+                  <p class="muted" id="spotlight-theme">
+                    AI infrastructure strength with cleaner continuation than the rest of the board.
                   </p>
                 </div>
-              </div>
-              <div class="ai-digest">
-                <article class="digest-card">
-                  <p class="section-label">Profile signals</p>
-                  <div class="intent-chip-row" id="intent-chips"></div>
-                </article>
-                <article class="digest-card">
-                  <p class="section-label">Why the scan shifted</p>
-                  <ul class="digest-list" id="ai-rationale"></ul>
-                </article>
-              </div>
-            </section>
-
-            <section class="filters-panel mode-panel" data-panel="classic">
-              <section class="preset-panel">
-                <div class="formula-head">
-                  <div>
-                    <p class="section-label">Screen presets</p>
-                    <h3>Start from tactical templates instead of rebuilding every screen.</h3>
-                  </div>
-                </div>
-                <div class="preset-grid">
-                  <button class="preset-chip" type="button" data-preset="opening-drive">Opening drive</button>
-                  <button class="preset-chip" type="button" data-preset="vwap-reclaim">VWAP reclaim</button>
-                  <button class="preset-chip" type="button" data-preset="liquidity-sweep">Liquidity sweep</button>
-                  <button class="preset-chip" type="button" data-preset="clean-carry">Clean carry</button>
-                </div>
-                <p class="muted small-note" id="preset-summary">
-                  Templates prefill classic filters and formula rules. VWAP is currently an intraday proxy based on quote structure, not full tick-derived VWAP.
+                <dl class="spotlight-metrics" id="spotlight-metrics"></dl>
+                <p class="muted" id="spotlight-note">
+                  SignalDeck will surface a richer read here once the scanner has ranked live names.
                 </p>
               </section>
-              <div class="filters-grid">
-                <label>
-                  <span class="section-label">Session</span>
-                  <select id="session-filter">
-                    <option value="all">All setups</option>
-                    <option value="intraday">Intraday focus</option>
-                    <option value="overnight">Overnight focus</option>
-                    <option value="swing">Swing focus</option>
-                  </select>
-                </label>
-
-                <label>
-                  <span class="section-label">Minimum momentum</span>
-                  <input id="momentum-filter" type="range" min="40" max="95" value="68" />
-                  <span class="range-value" id="momentum-value">68</span>
-                </label>
-
-                <label>
-                  <span class="section-label">Maximum risk</span>
-                  <input id="risk-filter" type="range" min="20" max="80" value="48" />
-                  <span class="range-value" id="risk-value">48</span>
-                </label>
-
-                <label>
-                  <span class="section-label">Minimum relative volume</span>
-                  <input id="volume-filter" type="range" min="10" max="30" value="15" />
-                  <span class="range-value" id="volume-value">1.5x</span>
-                </label>
-
-                <label>
-                  <span class="section-label">Sector</span>
-                  <select id="sector-filter">
-                    <option value="all">All sectors</option>
-                    <option value="Semiconductors">Semiconductors</option>
-                    <option value="Software">Software</option>
-                    <option value="Internet">Internet</option>
-                    <option value="Healthcare">Healthcare</option>
-                    <option value="Financials">Financials</option>
-                    <option value="Consumer">Consumer</option>
-                  </select>
-                </label>
-
-                <label>
-                  <span class="section-label">Market cap</span>
-                  <select id="market-cap-filter">
-                    <option value="all">All caps</option>
-                    <option value="Mega cap">Mega cap</option>
-                    <option value="Large cap">Large cap</option>
-                  </select>
-                </label>
-
-                <label>
-                  <span class="section-label">Minimum quality</span>
-                  <input id="quality-filter" type="range" min="55" max="95" value="70" />
-                  <span class="range-value" id="quality-value">70</span>
-                </label>
-
-                <label>
-                  <span class="section-label">Sort by</span>
-                  <select id="sort-filter">
-                    <option value="score">Best score</option>
-                    <option value="momentum">Highest momentum</option>
-                    <option value="quality">Highest quality</option>
-                    <option value="relativeVolume">Highest relative volume</option>
-                    <option value="risk">Lowest risk</option>
-                  </select>
-                </label>
-
-                <label>
-                  <span class="section-label">Minimum price</span>
-                  <input id="price-min-filter" type="number" min="0" step="0.01" value="0" />
-                </label>
-
-                <label>
-                  <span class="section-label">Maximum price</span>
-                  <input id="price-max-filter" type="number" min="0" step="0.01" value="9999" />
-                </label>
-
-                <label>
-                  <span class="section-label">Theme</span>
-                  <select id="theme-filter">
-                    <option value="all">All themes</option>
-                    <option value="AI infrastructure">AI infrastructure</option>
-                    <option value="Platform leader">Platform leader</option>
-                    <option value="Acceleration trade">Acceleration trade</option>
-                    <option value="Digital ads">Digital ads</option>
-                    <option value="Infrastructure leadership">Infrastructure leadership</option>
-                    <option value="Defensive growth">Defensive growth</option>
-                    <option value="Rate resilience">Rate resilience</option>
-                    <option value="Defensive compounder">Defensive compounder</option>
-                  </select>
-                </label>
-              </div>
-              <section class="formula-panel">
-                <div class="formula-head">
-                  <div>
-                    <p class="section-label">Formula builder</p>
-                    <h3>Stack rule blocks with real logic operators.</h3>
-                  </div>
-                  <div class="formula-controls">
-                    <label class="logic-mode-wrap" for="logic-mode-filter">
-                      <span class="section-label">Group logic</span>
-                      <select id="logic-mode-filter">
-                        <option value="AND">AND</option>
-                        <option value="OR">OR</option>
-                        <option value="NAND">NAND</option>
-                        <option value="NOR">NOR</option>
-                      </select>
-                    </label>
-                    <button class="ghost-button compact-button" id="add-formula-rule" type="button">
-                      Add rule
-                    </button>
-                  </div>
-                </div>
-                <div class="formula-rule-list" id="formula-rule-list"></div>
-                <p class="muted small-note" id="formula-summary">
-                  Rules can now run through AND, OR, NAND, or NOR, and each rule can be inverted with NOT.
-                </p>
-              </section>
-              <div class="action-row">
-                <button class="primary-button" id="apply-filters">Apply screen</button>
-                <p class="muted">Transparent ranking tuned for conviction, liquidity, and downside control.</p>
-              </div>
             </section>
-          </div>
-        </section>
-
-        <section class="brief-grid">
-          <section class="brief-panel">
-            <div class="panel-header">
-              <div>
-                <p class="section-label">AI market brief</p>
-                <h2 id="brief-headline">Opening strength with controlled downside.</h2>
-              </div>
-              <p class="mono" id="brief-window">First 90 minutes</p>
-            </div>
-            <p class="muted" id="brief-body">
-              The scanner is prioritizing trend quality and participation over raw gap size, so
-              names that keep buyers after the open should surface first.
-            </p>
-            <dl class="brief-metrics" id="brief-metrics"></dl>
           </section>
 
-          <section class="weights-panel">
-            <div class="panel-header">
-              <div>
-                <p class="section-label">Ranking model</p>
-                <h2>What drives the score</h2>
-              </div>
-              <p class="mono" id="weight-caption">Live profile</p>
-            </div>
-            <div class="weight-bars" id="weight-bars"></div>
-          </section>
-
-          <section class="spotlight-panel">
-            <div class="panel-header">
-              <div>
-                <p class="section-label">Scanner spotlight</p>
-                <h2>Best expression right now</h2>
-              </div>
-              <p class="mono" id="spotlight-caption">Lead setup</p>
-            </div>
-            <div class="spotlight-visual">
-              <div class="spotlight-orb"></div>
-              <div class="spotlight-copy">
-                <p class="section-label">Lead symbol</p>
-                <h3 id="spotlight-symbol">NVDA</h3>
-                <p class="muted" id="spotlight-theme">
-                  AI infrastructure strength with cleaner continuation than the rest of the board.
-                </p>
-              </div>
-            </div>
-            <dl class="spotlight-metrics" id="spotlight-metrics"></dl>
-            <p class="muted" id="spotlight-note">
-              SignalDeck will surface a richer read here once the scanner has ranked live names.
-            </p>
-          </section>
-        </section>
-
-        <section class="main-grid">
-          <section class="opportunity-panel">
-            <div class="panel-header">
+          <section class="board-panel" id="results-surface" data-view="table">
+            <div class="panel-header board-header">
               <div>
                 <p class="section-label">Opportunity board</p>
                 <h2 id="results-title">Top setups right now</h2>
               </div>
-              <p class="mono" id="results-meta">6 matches</p>
+              <p class="mono" id="results-meta">0 matches</p>
             </div>
 
             <div class="opportunity-toolbar">
@@ -408,12 +363,18 @@ Find intraday names that can open strong, keep trend quality through the session
                 <span class="section-label">Search</span>
                 <input id="symbol-search" type="search" placeholder="Filter by symbol, company, or theme" />
               </label>
+              <div class="view-toggle">
+                <button class="view-button active" id="view-table" type="button">Table</button>
+                <button class="view-button" id="view-cards" type="button">Cards</button>
+              </div>
             </div>
 
             <div class="opportunity-head">
               <span>Save</span>
               <span>Symbol</span>
               <span>Price</span>
+              <span>Chg %</span>
+              <span>Rel Vol</span>
               <span>Momentum</span>
               <span>Risk</span>
               <span>Score</span>
@@ -421,7 +382,17 @@ Find intraday names that can open strong, keep trend quality through the session
             <div id="opportunity-list" class="opportunity-list"></div>
           </section>
 
-          <aside class="inspector-panel">
+          <footer class="footer-note">
+            <p>
+              SignalDeck is an opportunity-discovery and risk-filtering product surface. It does not
+              claim guaranteed returns, and any win-rate statement would require backtesting, paper
+              trading, and live validation.
+            </p>
+          </footer>
+        </main>
+
+        <aside class="inspector-column">
+          <section class="inspector-panel">
             <div class="panel-header">
               <div>
                 <p class="section-label">Signal inspector</p>
@@ -467,10 +438,8 @@ Find intraday names that can open strong, keep trend quality through the session
               <p class="section-label">Market context</p>
               <dl class="context-grid" id="context-grid"></dl>
             </section>
-          </aside>
-        </section>
+          </section>
 
-        <section class="execution-grid">
           <section class="execution-panel">
             <div class="panel-header">
               <div>
@@ -485,7 +454,7 @@ Find intraday names that can open strong, keep trend quality through the session
             <dl class="context-grid execution-grid-list" id="execution-grid-list"></dl>
           </section>
 
-          <section class="execution-panel">
+          <section class="execution-panel monitor-panel">
             <div class="panel-header">
               <div>
                 <p class="section-label">Monitor stack</p>
@@ -495,46 +464,64 @@ Find intraday names that can open strong, keep trend quality through the session
             </div>
             <ul class="signal-list" id="monitor-list"></ul>
           </section>
-        </section>
+        </aside>
+      </div>
+    </div>
 
-        <section class="story-grid">
-          <section class="story-panel">
-            <p class="section-label">Why it feels real</p>
-            <h2>Not a toy chatbot. A decision-support workflow.</h2>
-            <p class="muted">
-              SignalDeck combines live market data, operator-driven screening, and explainable score
-              logic so users can understand why a name surfaced, not just see a mysterious answer.
-            </p>
-          </section>
-
-          <section class="story-panel">
-            <p class="section-label">Claim discipline</p>
-            <h2>No honest team should promise win rate without testing.</h2>
-            <p class="muted">
-              This product is positioned as an opportunity-discovery and risk-triage system. Any
-              future claim about hit rate would need backtesting, paper trading, and live
-              validation against costs and slippage.
-            </p>
-          </section>
-
-          <section class="story-panel">
-            <p class="section-label">Why it can become defensible</p>
-            <h2>Data, evaluation, and user workflow are the moat.</h2>
-            <p class="muted">
-              The roadmap is clear: expand the universe, log historical signals, evaluate outcomes,
-              measure precision by setup type, and learn which filters improve operator decisions.
-            </p>
-          </section>
-        </section>
-
-        <footer class="footer-note">
-          <p>
-            SignalDeck is built for opportunity discovery and risk filtering. It does not promise
-            guaranteed returns, and any win-rate claim would require rigorous backtesting and live
-            paper-trading evaluation.
+    <div class="modal-backdrop" id="auth-modal" hidden>
+      <div class="modal-card auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+        <div class="modal-head">
+          <div>
+            <p class="section-label">Account</p>
+            <h2 id="auth-modal-title">Sign in or create your account</h2>
+          </div>
+          <button class="ghost-button modal-close" id="auth-modal-close" type="button">Close</button>
+        </div>
+        <div class="auth-toggle" id="auth-toggle">
+          <button class="auth-tab active" data-auth-mode="login" type="button">Sign in</button>
+          <button class="auth-tab" data-auth-mode="register" type="button">Register</button>
+        </div>
+        <div class="auth-stack">
+          <label class="api-key-wrap" for="auth-email" id="auth-email-wrap">
+            <span class="section-label">Email</span>
+            <input id="auth-email" type="email" placeholder="you@example.com" />
+          </label>
+          <label class="api-key-wrap" for="auth-password" id="auth-password-wrap">
+            <span class="section-label">Password</span>
+            <input id="auth-password" type="password" placeholder="At least 8 characters" />
+          </label>
+          <div class="auth-actions">
+            <button class="primary-button" id="auth-submit" type="button">Sign in</button>
+            <button class="ghost-button" id="auth-google" type="button">Continue with Google</button>
+          </div>
+          <p class="muted small-note" id="auth-message">
+            Guest mode stores watchlists only in this browser.
           </p>
-        </footer>
-      </main>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="data-modal" hidden>
+      <div class="modal-card data-modal-card" role="dialog" aria-modal="true" aria-labelledby="data-modal-title">
+        <div class="modal-head">
+          <div>
+            <p class="section-label">Data source</p>
+            <h2 id="data-modal-title">Manage market data access</h2>
+          </div>
+          <button class="ghost-button modal-close" id="data-modal-close" type="button">Close</button>
+        </div>
+        <p class="muted" id="data-modal-copy">
+          Configure a local key for private testing, or rely on a server-side key for public deployment.
+        </p>
+        <label class="api-key-wrap" for="api-key-input">
+          <span class="section-label">API key</span>
+          <input id="api-key-input" type="password" placeholder="Paste your Twelve Data API key" />
+        </label>
+        <button class="primary-button secondary-button" id="save-api-key" type="button">Save key</button>
+        <p class="muted small-note" id="data-source-note">
+          Public deploys should use a server environment variable instead of a client-stored key.
+        </p>
+      </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
