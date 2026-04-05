@@ -21,8 +21,11 @@ const trackedUniverse = [
 
 const FORMULA_FIELDS = [
   { key: "price", label: "Price", type: "number" },
+  { key: "volume", label: "Volume", type: "number" },
+  { key: "averageVolume", label: "Average volume", type: "number" },
   { key: "changePct", label: "Session change %", type: "number" },
   { key: "gap", label: "Gap %", type: "number" },
+  { key: "gapAbs", label: "Absolute gap %", type: "number", getter: stock => Math.abs(Number(stock.gap || 0)) },
   { key: "drivePct", label: "Drive from open %", type: "number" },
   { key: "momentum", label: "Momentum", type: "number" },
   { key: "risk", label: "Risk", type: "number" },
@@ -34,8 +37,32 @@ const FORMULA_FIELDS = [
   { key: "closePosition", label: "Close position", type: "number" },
   { key: "proxyVwap", label: "VWAP proxy", type: "number" },
   { key: "vwapDrift", label: "Distance from VWAP proxy %", type: "number" },
-  { key: "turnover", label: "Approx. turnover", type: "number" },
+  { key: "turnover", label: "Dollar volume est. (price × volume)", type: "number" },
+  {
+    key: "avgTurnover",
+    label: "Avg dollar volume est. (price × avg vol)",
+    type: "number",
+    getter: stock => Number(stock.price || 0) * Number(stock.averageVolume || 0),
+  },
+  {
+    key: "turnoverRatio",
+    label: "Dollar vol / avg dollar vol",
+    type: "number",
+    getter: stock => {
+      const avgTurnover = Number(stock.price || 0) * Number(stock.averageVolume || 0);
+      if (!avgTurnover) {
+        return 0;
+      }
+      return Number(stock.turnover || 0) / avgTurnover;
+    },
+  },
   { key: "rangePct", label: "Range %", type: "number" },
+  {
+    key: "rangeMinusGap",
+    label: "Range % minus |gap %|",
+    type: "number",
+    getter: stock => Number(stock.rangePct || 0) - Math.abs(Number(stock.gap || 0)),
+  },
   { key: "sector", label: "Sector", type: "text" },
   { key: "theme", label: "Theme", type: "text" },
   { key: "session", label: "Session bias", type: "text" },
@@ -559,7 +586,14 @@ function applyClassicPreset(presetKey) {
 }
 
 function createFormulaRule() {
-  return { id: createRuleId(), field: "relativeVolume", operator: ">=", value: "1.5", negate: false };
+  return {
+    id: createRuleId(),
+    field: "relativeVolume",
+    operator: ">=",
+    value: "1.5",
+    valueSecondary: "",
+    negate: false,
+  };
 }
 
 function createRuleId() {
@@ -602,6 +636,7 @@ function sanitizeFormulaRules(rules) {
       field: getFormulaFieldMeta(rule.field)?.key || "relativeVolume",
       operator: rule.operator || ">=",
       value: String(rule.value ?? ""),
+      valueSecondary: String(rule.valueSecondary ?? ""),
       negate: Boolean(rule.negate),
     }));
 }
@@ -613,7 +648,11 @@ function getFormulaFieldMeta(fieldKey) {
 function getOperatorsForRule(rule) {
   return getFormulaFieldMeta(rule.field)?.type === "text"
     ? ["is", "contains", "is not"]
-    : [">=", ">", "<=", "<", "=", "!="];
+    : [">=", ">", "<=", "<", "=", "!=", "between", "not between"];
+}
+
+function isRangeOperator(operator) {
+  return operator === "between" || operator === "not between";
 }
 
 function updateFormulaRule(ruleId, prop, value) {
@@ -626,12 +665,20 @@ function updateFormulaRule(ruleId, prop, value) {
   if (prop === "field") {
     rule.operator = getOperatorsForRule(rule)[0];
     rule.value = getFormulaFieldMeta(value)?.type === "text" ? "" : "0";
+    rule.valueSecondary = "";
+  }
+  if (prop === "operator" && !isRangeOperator(value)) {
+    rule.valueSecondary = "";
   }
   applyClassicFilters();
 }
 
 function matchesFormulaRules(stock, rules, groupMode = "AND") {
-  const activeRules = sanitizeFormulaRules(rules).filter(rule => String(rule.value).trim() !== "");
+  const activeRules = sanitizeFormulaRules(rules).filter(rule =>
+    isRangeOperator(rule.operator)
+      ? String(rule.value).trim() !== "" && String(rule.valueSecondary).trim() !== ""
+      : String(rule.value).trim() !== "",
+  );
   if (!activeRules.length) {
     return true;
   }
@@ -652,13 +699,21 @@ function matchesFormulaRules(stock, rules, groupMode = "AND") {
   }
 }
 
+function getFormulaFieldValue(stock, fieldKey) {
+  const meta = getFormulaFieldMeta(fieldKey);
+  if (!meta) {
+    return undefined;
+  }
+  return typeof meta.getter === "function" ? meta.getter(stock) : stock[fieldKey];
+}
+
 function evaluateFormulaRule(stock, rule) {
   const meta = getFormulaFieldMeta(rule.field);
   if (!meta) {
     return true;
   }
 
-  const stockValue = stock[rule.field];
+  const stockValue = getFormulaFieldValue(stock, rule.field);
   if (meta.type === "text") {
     const left = String(stockValue || "").toLowerCase();
     const right = String(rule.value || "").toLowerCase();
@@ -676,6 +731,7 @@ function evaluateFormulaRule(stock, rule) {
 
   const left = Number(stockValue);
   const right = Number(rule.value);
+  const rightSecondary = Number(rule.valueSecondary);
   if (!Number.isFinite(left) || !Number.isFinite(right)) {
     return true;
   }
@@ -697,6 +753,24 @@ function evaluateFormulaRule(stock, rule) {
     case "!=":
       result = left !== right;
       break;
+    case "between": {
+      if (!Number.isFinite(rightSecondary)) {
+        return true;
+      }
+      const lower = Math.min(right, rightSecondary);
+      const upper = Math.max(right, rightSecondary);
+      result = left >= lower && left <= upper;
+      break;
+    }
+    case "not between": {
+      if (!Number.isFinite(rightSecondary)) {
+        return true;
+      }
+      const lower = Math.min(right, rightSecondary);
+      const upper = Math.max(right, rightSecondary);
+      result = left < lower || left > upper;
+      break;
+    }
     default:
       result = left === right;
       break;
@@ -1674,14 +1748,14 @@ function renderFormulaRules() {
 
   const mode = String(state.classicFilters.groupMode || "AND").toUpperCase();
   elements.formulaSummary.textContent = rules.length
-    ? `${rules.length} rule${rules.length === 1 ? "" : "s"} active. Group logic is ${mode}, and each rule can be inverted with NOT.`
-    : "No formula rules yet. Add a rule, choose AND/OR/NAND/NOR, and invert any block with NOT.";
+    ? `${rules.length} rule${rules.length === 1 ? "" : "s"} active. Group logic is ${mode}, with NOT plus range and synthetic-field support.`
+    : "No formula rules yet. Add a rule, choose AND/OR/NAND/NOR, and use ranges or synthetic fields when one raw field is not enough.";
 
   if (!rules.length) {
     elements.formulaRuleList.innerHTML = `
       <div class="formula-empty">
         <p class="muted">No custom rules yet.</p>
-        <p class="muted small-note">Add a rule to stack supported fields like gap, turnover, VWAP proxy, or range.</p>
+        <p class="muted small-note">Add a rule to stack supported fields like dollar volume estimate, VWAP drift, range, or other derived fields.</p>
       </div>
     `;
     return;
@@ -1716,7 +1790,14 @@ function renderFormulaRules() {
           </label>
           <label>
             <span class="section-label">Value</span>
-            <input data-rule-prop="value" type="${getFormulaFieldMeta(rule.field)?.type === "text" ? "text" : "number"}" step="any" value="${rule.value}" />
+            <div class="rule-value-stack ${isRangeOperator(rule.operator) ? "range" : ""}">
+              <input data-rule-prop="value" type="${getFormulaFieldMeta(rule.field)?.type === "text" ? "text" : "number"}" step="any" value="${rule.value}" placeholder="${isRangeOperator(rule.operator) ? "Min" : "Value"}" />
+              ${
+                isRangeOperator(rule.operator)
+                  ? `<input data-rule-prop="valueSecondary" type="number" step="any" value="${rule.valueSecondary}" placeholder="Max" />`
+                  : ""
+              }
+            </div>
           </label>
           <button class="formula-remove" data-remove-rule="${rule.id}" type="button" aria-label="Remove rule">x</button>
         </div>

@@ -652,6 +652,21 @@ input[type="range"] {
   margin: 0;
 }
 
+.rule-value-stack {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.rule-value-stack.range {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rule-value-stack input {
+  margin-top: 0;
+}
+
 .formula-remove {
   height: 42px;
   border: 1px solid var(--line);
@@ -1290,6 +1305,10 @@ select option {
 
   .formula-rule {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .rule-value-stack.range {
+    grid-template-columns: 1fr;
   }
 
   .opportunity-head {
