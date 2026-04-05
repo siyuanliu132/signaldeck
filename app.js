@@ -8,7 +8,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_
   },
 });
 
-const trackedUniverse = [
+const CURATED_LIVE_UNIVERSE = [
   { symbol: "NVDA", name: "NVIDIA", session: "intraday", trend: "Intraday continuation", sector: "Semiconductors", theme: "AI infrastructure", marketCap: "Mega cap" },
   { symbol: "AMD", name: "Advanced Micro Devices", session: "intraday", trend: "Opening drive", sector: "Semiconductors", theme: "Acceleration trade", marketCap: "Large cap" },
   { symbol: "AVGO", name: "Broadcom", session: "intraday", trend: "Trend acceleration", sector: "Semiconductors", theme: "Infrastructure leadership", marketCap: "Mega cap" },
@@ -42,6 +42,107 @@ const trackedUniverse = [
   { symbol: "CAT", name: "Caterpillar", session: "swing", trend: "Industrial swing", sector: "Industrials", theme: "Industrial cyclicals", marketCap: "Mega cap" },
   { symbol: "GE", name: "GE Aerospace", session: "swing", trend: "Industrial leadership", sector: "Industrials", theme: "Aerospace demand", marketCap: "Mega cap" },
 ];
+
+const LIVE_BATCH_SYMBOLS = CURATED_LIVE_UNIVERSE.map(stock => stock.symbol);
+const CATALOG_OVERRIDES = Object.fromEntries(CURATED_LIVE_UNIVERSE.map(stock => [stock.symbol, stock]));
+const MEGA_CAP_SYMBOLS = new Set([
+  "AAPL", "ABBV", "ABT", "ADBE", "AMZN", "AVGO", "BAC", "BRK-B", "COST", "CVX", "GOOGL", "GOOG",
+  "HD", "JNJ", "JPM", "KO", "LLY", "MA", "MCD", "META", "MSFT", "NFLX", "NVDA", "ORCL", "PG", "TSLA",
+  "UNH", "V", "WMT", "XOM",
+]);
+const SECTOR_LABEL_MAP = {
+  "Communication Services": "Communication Services",
+  "Consumer Discretionary": "Consumer Discretionary",
+  "Consumer Staples": "Consumer Staples",
+  "Energy": "Energy",
+  "Financials": "Financials",
+  "Health Care": "Healthcare",
+  "Industrials": "Industrials",
+  "Information Technology": "Technology",
+  "Materials": "Materials",
+  "Real Estate": "Real Estate",
+  "Utilities": "Utilities",
+};
+const THEME_BY_SECTOR = {
+  "Communication Services": "Digital platforms",
+  "Consumer Discretionary": "Consumer beta",
+  "Consumer Staples": "Defensive staples",
+  "Energy": "Energy cash flow",
+  "Financials": "Capital and rates",
+  "Healthcare": "Healthcare quality",
+  "Industrials": "Industrial cyclicals",
+  "Technology": "Platform and compute",
+  "Materials": "Materials cycle",
+  "Real Estate": "Real estate income",
+  "Utilities": "Defensive yield",
+};
+const SESSION_BY_SECTOR = {
+  "Communication Services": "intraday",
+  "Consumer Discretionary": "swing",
+  "Consumer Staples": "overnight",
+  "Energy": "overnight",
+  "Financials": "overnight",
+  "Healthcare": "swing",
+  "Industrials": "swing",
+  "Technology": "intraday",
+  "Materials": "swing",
+  "Real Estate": "overnight",
+  "Utilities": "overnight",
+};
+const TREND_BY_SECTOR = {
+  "Communication Services": "Platform follow-through",
+  "Consumer Discretionary": "Consumer momentum",
+  "Consumer Staples": "Defensive carry",
+  "Energy": "Cash-flow carry",
+  "Financials": "Capital strength",
+  "Healthcare": "Quality continuation",
+  "Industrials": "Industrial swing",
+  "Technology": "Growth continuation",
+  "Materials": "Cycle-sensitive swing",
+  "Real Estate": "Rate-sensitive hold",
+  "Utilities": "Defensive hold",
+};
+
+function normalizeUniverseSector(sector) {
+  return SECTOR_LABEL_MAP[String(sector || "").trim()] || String(sector || "").trim() || "Other";
+}
+
+function inferMarketCap(symbol, sourceTags = []) {
+  if (MEGA_CAP_SYMBOLS.has(symbol) || sourceTags.includes("nasdaq100")) {
+    return "Mega cap";
+  }
+  return "Large cap";
+}
+
+function buildUniverseCatalog(rawCatalog) {
+  return rawCatalog.map(entry => {
+    const normalizedSector = normalizeUniverseSector(entry.sector);
+    const sourceTags = Array.isArray(entry.sourceTags) ? entry.sourceTags : [];
+    const override = CATALOG_OVERRIDES[entry.symbol];
+
+    return {
+      symbol: entry.symbol,
+      name: entry.name,
+      session: override?.session || SESSION_BY_SECTOR[normalizedSector] || "swing",
+      trend: override?.trend || TREND_BY_SECTOR[normalizedSector] || "Broad-market scan",
+      sector: override?.sector || normalizedSector,
+      theme: override?.theme || THEME_BY_SECTOR[normalizedSector] || "Broad-market coverage",
+      marketCap: override?.marketCap || inferMarketCap(entry.symbol, sourceTags),
+      sourceTags,
+    };
+  });
+}
+
+const trackedUniverse = buildUniverseCatalog(
+  Array.isArray(window.signalDeckCatalog) && window.signalDeckCatalog.length
+    ? window.signalDeckCatalog
+    : CURATED_LIVE_UNIVERSE.map(stock => ({
+        symbol: stock.symbol,
+        name: stock.name,
+        sector: stock.sector,
+        sourceTags: ["curated"],
+      })),
+);
 
 const FORMULA_FIELDS = [
   { key: "price", label: "Price", type: "number" },
@@ -1894,14 +1995,9 @@ function applyPaletteAction(item) {
   }
 
   if (item.type === "symbol") {
-    state.selectedSymbol = item.value;
     state.universeFilterTerm = item.value.toLowerCase();
     elements.universeSearch.value = item.value;
-    setCurrentScreen("universe");
-    if (!state.historyMap[item.value]) {
-      loadHistory(item.value);
-      return;
-    }
+    focusSymbol(item.value, "universe");
     return;
   }
 
@@ -2289,12 +2385,16 @@ async function refreshMarketData(options = {}) {
   renderConnectionState();
 
   try {
-    const symbols = trackedUniverse.map(stock => stock.symbol).join(",");
+    const symbols = LIVE_BATCH_SYMBOLS.join(",");
     const payload = await fetchJson(`/api/market/quotes?symbols=${encodeURIComponent(symbols)}`);
     state.quoteMap = normalizeQuotes(payload.data);
     state.lastUpdatedAt = payload.fetchedAt || new Date().toISOString();
     state.marketTransport = payload.stale ? "stale" : payload.shared ? "shared" : payload.cached ? "cached" : "fresh";
     state.loadError = "";
+
+    if (state.selectedSymbol && !state.quoteMap[state.selectedSymbol]) {
+      await loadQuote(state.selectedSymbol, { quiet: true });
+    }
 
     if (!state.historyMap[state.selectedSymbol]) {
       await loadHistory(state.selectedSymbol);
@@ -2304,6 +2404,38 @@ async function refreshMarketData(options = {}) {
     state.loadError = error.message;
   } finally {
     state.isRefreshing = false;
+    renderConnectionState();
+    render();
+  }
+}
+
+async function loadQuote(symbol, options = {}) {
+  if (!symbol || state.quoteMap[symbol]?.status !== "error" && state.quoteMap[symbol]) {
+    return;
+  }
+
+  if (!state.apiConfig.hasServerKey && !state.apiKey) {
+    return;
+  }
+
+  if (!options.quiet) {
+    state.loadError = "";
+    renderConnectionState();
+  }
+
+  try {
+    const payload = await fetchJson(`/api/market/quotes?symbols=${encodeURIComponent(symbol)}`);
+    state.quoteMap = {
+      ...state.quoteMap,
+      ...normalizeQuotes(payload.data),
+    };
+    state.lastUpdatedAt = payload.fetchedAt || state.lastUpdatedAt || new Date().toISOString();
+    state.marketTransport = payload.stale ? "stale" : payload.shared ? "shared" : payload.cached ? "cached" : "fresh";
+    state.loadError = "";
+  } catch (error) {
+    state.marketTransport = "error";
+    state.loadError = error.message;
+  } finally {
     renderConnectionState();
     render();
   }
@@ -2552,6 +2684,29 @@ function getUniverseResults() {
       return haystack.includes(state.universeFilterTerm);
     })
     .sort((left, right) => left.symbol.localeCompare(right.symbol));
+}
+
+async function focusSymbol(symbol, nextScreen = null) {
+  if (!symbol) {
+    return;
+  }
+
+  state.selectedSymbol = symbol;
+
+  if (nextScreen) {
+    state.currentScreen = nextScreen;
+  }
+
+  if (!state.quoteMap[symbol]) {
+    await loadQuote(symbol, { quiet: true });
+  }
+
+  if (!state.historyMap[symbol]) {
+    await loadHistory(symbol);
+    return;
+  }
+
+  render();
 }
 
 function getWatchlistResults() {
@@ -3165,12 +3320,7 @@ function renderWatchlist() {
 
   [...elements.watchlistList.querySelectorAll("[data-watch-symbol]")].forEach(button => {
     button.addEventListener("click", async () => {
-      state.selectedSymbol = button.dataset.watchSymbol;
-      if (!state.historyMap[state.selectedSymbol]) {
-        await loadHistory(state.selectedSymbol);
-      } else {
-        render();
-      }
+      await focusSymbol(button.dataset.watchSymbol, "watchlist");
     });
   });
 }
@@ -3209,12 +3359,7 @@ function renderUniverseScreen(universe) {
 
   [...elements.universeList.querySelectorAll("[data-universe-symbol]")].forEach(button => {
     button.addEventListener("click", async () => {
-      state.selectedSymbol = button.dataset.universeSymbol;
-      if (!state.historyMap[state.selectedSymbol]) {
-        await loadHistory(state.selectedSymbol);
-      } else {
-        render();
-      }
+      await focusSymbol(button.dataset.universeSymbol, "universe");
     });
   });
 }
@@ -3255,12 +3400,7 @@ function renderWatchlistScreen(watchlistResults) {
 
   [...elements.watchlistScreenList.querySelectorAll("[data-watchlist-symbol]")].forEach(button => {
     button.addEventListener("click", async () => {
-      state.selectedSymbol = button.dataset.watchlistSymbol;
-      if (!state.historyMap[state.selectedSymbol]) {
-        await loadHistory(state.selectedSymbol);
-      } else {
-        render();
-      }
+      await focusSymbol(button.dataset.watchlistSymbol, "watchlist");
     });
   });
 }
