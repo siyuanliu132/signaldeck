@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -19,13 +19,14 @@
           <div class="brand-mark">SD</div>
           <div class="brand-copy">
             <p class="eyebrow">SignalDeck</p>
-            <strong>Premium market scanner</strong>
+            <strong>Market intelligence terminal</strong>
           </div>
         </div>
 
         <label class="topbar-search" for="topbar-search-input">
-          <span class="search-icon" aria-hidden="true">⌕</span>
-          <input id="topbar-search-input" type="search" placeholder="Search symbols, themes, or active screens" />
+          <span class="search-icon" aria-hidden="true">/</span>
+          <input id="topbar-search-input" type="search" placeholder="Jump to symbols, sectors, presets, and screens" autocomplete="off" />
+          <span class="search-shortcut mono" aria-hidden="true">Command</span>
         </label>
 
         <div class="topbar-actions">
@@ -37,7 +38,7 @@
                 <span class="mono time-stamp" id="last-updated">Waiting for first data pull</span>
               </div>
             </div>
-            <button class="ghost-button topbar-settings" id="topbar-settings" type="button">Data source</button>
+            <button class="ghost-button topbar-settings" id="topbar-settings" type="button">Settings</button>
             <button class="primary-button topbar-refresh" id="refresh-market" type="button">Refresh</button>
           </div>
           <div class="account-cluster">
@@ -73,15 +74,29 @@
       <div class="terminal-grid">
         <aside class="rail">
           <div class="rail-brand">
-            <div class="rail-brand-top">
-              <div class="rail-brand-icon">SD</div>
-              <div>
-                <p class="eyebrow">Operator desk</p>
-                <h1>SignalDeck</h1>
-              </div>
-            </div>
-            <p class="muted">AI-assisted screening, explicit filters, and real-market ranking for a lean demo universe.</p>
+            <p class="eyebrow">Operator desk</p>
+            <h1>SignalDeck</h1>
+            <p class="muted">A multi-screen scanner for screening, browsing, and monitoring a compact live demo universe.</p>
           </div>
+
+          <nav class="rail-nav" aria-label="Workspace screens">
+            <button class="nav-link active" data-nav-screen="scanner" type="button">
+              <span>Scanner</span>
+              <small>AI + Classic screen builder</small>
+            </button>
+            <button class="nav-link" data-nav-screen="universe" type="button">
+              <span>Universe</span>
+              <small>Browse every tracked name</small>
+            </button>
+            <button class="nav-link" data-nav-screen="watchlist" type="button">
+              <span>Watchlist</span>
+              <small>Saved names and quick checks</small>
+            </button>
+            <button class="nav-link" data-nav-screen="settings" type="button">
+              <span>Settings</span>
+              <small>Data source, auth, runtime</small>
+            </button>
+          </nav>
 
           <section class="rail-section">
             <div class="rail-head">
@@ -104,7 +119,7 @@
 
           <section class="rail-section">
             <div class="watchlist-head">
-              <p class="section-label">Watchlist</p>
+              <p class="section-label">Watchlist preview</p>
               <span class="mono" id="watchlist-count">0 saved</span>
             </div>
             <p class="muted small-note" id="watchlist-note">
@@ -122,7 +137,8 @@
         </aside>
 
         <main class="workspace">
-          <section class="pulse-strip" id="pulse-strip"></section>
+          <section class="workspace-screen active" id="screen-scanner" data-screen="scanner">
+            <section class="pulse-strip" id="pulse-strip"></section>
 
           <section class="scan-station">
             <div class="surface-header">
@@ -429,17 +445,173 @@ Find intraday names that can open strong, keep trend quality through the session
             <div id="opportunity-list" class="opportunity-list"></div>
           </section>
 
-          <details class="footer-note">
-            <summary>Methodology and demo limitations</summary>
-            <p>
-              SignalDeck is an opportunity-discovery and risk-filtering product surface. It does not
-              claim guaranteed returns, and any win-rate statement would require backtesting, paper
-              trading, and live validation.
-            </p>
-          </details>
+          </section>
+
+          <section class="workspace-screen" id="screen-universe" data-screen="universe" hidden>
+            <section class="screen-shell">
+              <div class="screen-header">
+                <div>
+                  <p class="section-label">Universe</p>
+                  <h2>Browse the full tracked universe</h2>
+                </div>
+                <p class="muted">Use this screen as the direct destination for symbol, sector, theme, and preset jumps.</p>
+              </div>
+
+              <section class="board-panel universe-panel">
+                <div class="panel-header board-header">
+                  <div>
+                    <p class="section-label">Universe board</p>
+                    <h2>Every live name in the current demo feed</h2>
+                  </div>
+                  <p class="mono" id="universe-meta">0 names</p>
+                </div>
+
+                <div class="opportunity-toolbar">
+                  <label class="search-wrap" for="universe-search">
+                    <span class="section-label">Universe filter</span>
+                    <input id="universe-search" type="search" placeholder="Filter by symbol, company, sector, or theme" />
+                  </label>
+                </div>
+
+                <div class="opportunity-head universe-head">
+                  <span>Symbol</span>
+                  <span>Company</span>
+                  <span>Sector</span>
+                  <span>Theme</span>
+                  <span>Price</span>
+                  <span>Chg %</span>
+                  <span>Rel Vol</span>
+                  <span>Score</span>
+                </div>
+                <div id="universe-list" class="opportunity-list universe-list"></div>
+              </section>
+            </section>
+          </section>
+
+          <section class="workspace-screen" id="screen-watchlist" data-screen="watchlist" hidden>
+            <section class="screen-shell">
+              <div class="screen-header">
+                <div>
+                  <p class="section-label">Watchlist</p>
+                  <h2>Saved names and quick re-entry</h2>
+                </div>
+                <p class="muted">Use the watchlist as a lighter holding area instead of squeezing every saved symbol into the left rail.</p>
+              </div>
+
+              <section class="board-panel watchlist-panel">
+                <div class="panel-header board-header">
+                  <div>
+                    <p class="section-label">Saved symbols</p>
+                    <h2>Names you marked for follow-up</h2>
+                  </div>
+                  <p class="mono" id="watchlist-screen-meta">0 saved</p>
+                </div>
+
+                <div class="opportunity-head universe-head watchlist-head-row">
+                  <span>Symbol</span>
+                  <span>Theme</span>
+                  <span>Session</span>
+                  <span>Price</span>
+                  <span>Chg %</span>
+                  <span>Rel Vol</span>
+                  <span>Score</span>
+                </div>
+                <div id="watchlist-screen-list" class="opportunity-list universe-list"></div>
+              </section>
+            </section>
+          </section>
+
+          <section class="workspace-screen" id="screen-settings" data-screen="settings" hidden>
+            <section class="screen-shell settings-shell">
+              <div class="screen-header">
+                <div>
+                  <p class="section-label">Settings</p>
+                  <h2>Runtime, data, and account access</h2>
+                </div>
+                <p class="muted">Configure private testing keys, review feed state, and manage account access without blocking the working surface.</p>
+              </div>
+
+              <div class="settings-grid">
+                <section class="board-panel settings-panel">
+                  <div class="panel-header">
+                    <div>
+                      <p class="section-label">Data source</p>
+                      <h2>Manage market data access</h2>
+                    </div>
+                    <p class="mono">Quotes</p>
+                  </div>
+                  <p class="muted" id="data-modal-copy">
+                    Configure a local key for private testing, or rely on a server-side key for public deployment.
+                  </p>
+                  <label class="api-key-wrap" for="api-key-input">
+                    <span class="section-label">API key</span>
+                    <input id="api-key-input" type="password" placeholder="Paste your Twelve Data API key" />
+                  </label>
+                  <button class="primary-button secondary-button" id="save-api-key" type="button">Save key</button>
+                  <p class="muted small-note" id="data-source-note">
+                    Public deploys should use a server environment variable instead of a client-stored key.
+                  </p>
+                </section>
+
+                <section class="board-panel settings-panel">
+                  <div class="panel-header">
+                    <div>
+                      <p class="section-label">Runtime</p>
+                      <h2>Current feed and parser state</h2>
+                    </div>
+                    <p class="mono">Status</p>
+                  </div>
+                  <dl class="settings-metrics">
+                    <div>
+                      <dt>Feed state</dt>
+                      <dd id="settings-feed-status">Waiting for market data connection</dd>
+                    </div>
+                    <div>
+                      <dt>Last updated</dt>
+                      <dd id="settings-last-updated">Waiting for first data pull</dd>
+                    </div>
+                    <div>
+                      <dt>AI runtime</dt>
+                      <dd id="settings-ai-status">Heuristic fallback</dd>
+                    </div>
+                  </dl>
+                  <p class="muted small-note" id="settings-runtime-note">
+                    Free-tier mode is currently using a curated universe, shared caching, and slower refresh intervals.
+                  </p>
+                </section>
+
+                <section class="board-panel settings-panel">
+                  <div class="panel-header">
+                    <div>
+                      <p class="section-label">Account</p>
+                      <h2>Authentication and sync</h2>
+                    </div>
+                    <p class="mono" id="settings-account-label">Guest mode</p>
+                  </div>
+                  <p class="muted" id="settings-account-copy">
+                    Create an account to sync your watchlist and saved screen state across sessions.
+                  </p>
+                  <div class="settings-account-actions">
+                    <button class="primary-button" id="settings-signin" type="button">Sign in</button>
+                    <button class="ghost-button" id="settings-register" type="button">Register</button>
+                    <button class="ghost-button" id="settings-signout" hidden type="button">Sign out</button>
+                  </div>
+                </section>
+
+                <details class="footer-note settings-note">
+                  <summary>Methodology and demo limitations</summary>
+                  <p>
+                    SignalDeck is an opportunity-discovery and risk-filtering product surface. It does not
+                    claim guaranteed returns, and any win-rate statement would require backtesting, paper
+                    trading, and live validation.
+                  </p>
+                </details>
+              </div>
+            </section>
+          </section>
         </main>
 
-        <aside class="inspector-column">
+        <aside class="inspector-column" id="inspector-column">
           <section class="inspector-panel">
             <div class="panel-header">
               <div>
@@ -516,6 +688,17 @@ Find intraday names that can open strong, keep trend quality through the session
       </div>
     </div>
 
+    <div class="palette-popover" id="palette-popover" hidden>
+      <div class="palette-head">
+        <div>
+          <p class="section-label">Command palette</p>
+          <h2>Jump to screens, presets, symbols, sectors, and themes</h2>
+        </div>
+        <p class="mono" id="palette-meta">Type to search the app, not just the current table.</p>
+      </div>
+      <div class="palette-results" id="palette-results"></div>
+    </div>
+
     <div class="modal-backdrop" id="auth-modal" hidden>
       <div class="modal-card auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
         <div class="modal-head">
@@ -549,29 +732,6 @@ Find intraday names that can open strong, keep trend quality through the session
       </div>
     </div>
 
-    <div class="modal-backdrop" id="data-modal" hidden>
-      <div class="modal-card data-modal-card" role="dialog" aria-modal="true" aria-labelledby="data-modal-title">
-        <div class="modal-head">
-          <div>
-            <p class="section-label">Data source</p>
-            <h2 id="data-modal-title">Manage market data access</h2>
-          </div>
-          <button class="ghost-button modal-close" id="data-modal-close" type="button">Close</button>
-        </div>
-        <p class="muted" id="data-modal-copy">
-          Configure a local key for private testing, or rely on a server-side key for public deployment.
-        </p>
-        <label class="api-key-wrap" for="api-key-input">
-          <span class="section-label">API key</span>
-          <input id="api-key-input" type="password" placeholder="Paste your Twelve Data API key" />
-        </label>
-        <button class="primary-button secondary-button" id="save-api-key" type="button">Save key</button>
-        <p class="muted small-note" id="data-source-note">
-          Public deploys should use a server environment variable instead of a client-stored key.
-        </p>
-      </div>
-    </div>
-
     <div class="modal-backdrop" id="field-library-modal" hidden>
       <div class="modal-card field-library-card" role="dialog" aria-modal="true" aria-labelledby="field-library-title">
         <div class="modal-head">
@@ -596,3 +756,4 @@ Find intraday names that can open strong, keep trend quality through the session
     <script src="./app.js"></script>
   </body>
 </html>
+

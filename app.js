@@ -1,4 +1,4 @@
-const SUPABASE_URL = "https://lebhgypjdikxhjbgoklb.supabase.co";
+﻿const SUPABASE_URL = "https://lebhgypjdikxhjbgoklb.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_soubqDA83uJO_-lwCy0JmQ_3ghqNddv";
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
@@ -37,10 +37,10 @@ const FORMULA_FIELDS = [
   { key: "closePosition", label: "Close position", type: "number" },
   { key: "proxyVwap", label: "VWAP proxy", type: "number" },
   { key: "vwapDrift", label: "Distance from VWAP proxy %", type: "number" },
-  { key: "turnover", label: "Dollar volume est. (price × volume)", type: "number" },
+  { key: "turnover", label: "Dollar volume est. (price x volume)", type: "number" },
   {
     key: "avgTurnover",
-    label: "Avg dollar volume est. (price × avg vol)",
+    label: "Avg dollar volume est. (price x avg vol)",
     type: "number",
     getter: stock => Number(stock.price || 0) * Number(stock.averageVolume || 0),
   },
@@ -259,9 +259,63 @@ const CLASSIC_PRESETS = {
   },
 };
 
+const SCREEN_DEFINITIONS = [
+  { key: "scanner", label: "Scanner", description: "AI and classic screen builder", aliases: ["scanner", "scan", "筛选", "扫描", "工作区"] },
+  { key: "universe", label: "Universe", description: "Browse the tracked universe", aliases: ["universe", "market", "全量", "全部股票", "市场"] },
+  { key: "watchlist", label: "Watchlist", description: "Saved names and quick checks", aliases: ["watchlist", "saved", "自选", "观察列表"] },
+  { key: "settings", label: "Settings", description: "Data source, auth, and runtime", aliases: ["settings", "config", "data source", "设置", "数据源"] },
+];
+
+const SEARCH_ALIASES = {
+  semiconductors: "Semiconductors",
+  半导体: "Semiconductors",
+  software: "Software",
+  软件: "Software",
+  internet: "Internet",
+  互联网: "Internet",
+  healthcare: "Healthcare",
+  医疗: "Healthcare",
+  financials: "Financials",
+  金融: "Financials",
+  consumer: "Consumer",
+  消费: "Consumer",
+  "ai infrastructure": "AI infrastructure",
+  "ai基础设施": "AI infrastructure",
+  "platform leader": "Platform leader",
+  平台龙头: "Platform leader",
+  "opening drive": "opening-drive",
+  开盘驱动: "opening-drive",
+  "vwap reclaim": "vwap-reclaim",
+  "vwap 回收": "vwap-reclaim",
+  "liquidity sweep": "liquidity-sweep",
+  流动性扫描: "liquidity-sweep",
+  "clean carry": "clean-carry",
+  干净隔夜: "clean-carry",
+};
 const REFRESH_INTERVAL_MS = 1000 * 60 * 4;
 const HISTORY_INTERVAL = "15min";
 const HISTORY_POINTS = 24;
+const LOCAL_SEARCH_ALIASES = {
+  半导体: "Semiconductors",
+  软件: "Software",
+  互联网: "Internet",
+  医疗: "Healthcare",
+  金融: "Financials",
+  消费: "Consumer",
+  设置: "settings",
+  数据源: "settings",
+  自选: "watchlist",
+  观察列表: "watchlist",
+  扫描: "scanner",
+  筛选: "scanner",
+  市场: "universe",
+  全量: "universe",
+  "ai基础设施": "AI infrastructure",
+  平台龙头: "Platform leader",
+  开盘驱动: "opening-drive",
+  流动性扫描: "liquidity-sweep",
+  干净隔夜: "clean-carry",
+};
 
 function getDefaultClassicFilters() {
   return {
@@ -285,14 +339,15 @@ function getDefaultClassicFilters() {
 }
 
 const state = {
+  currentScreen: "scanner",
   surfaceMode: "ai",
   selectedSymbol: "NVDA",
   authMode: "login",
   currentUser: null,
   accountMenuOpen: false,
   authModalOpen: false,
-  dataModalOpen: false,
   fieldLibraryOpen: false,
+  paletteOpen: false,
   aiWorking: false,
   resultsView: "table",
   formulaPanelMode: "rules",
@@ -321,7 +376,9 @@ const state = {
   loadError: "",
   watchlist: loadWatchlist(),
   customMetrics: INITIAL_CUSTOM_METRICS,
-  searchTerm: "",
+  paletteQuery: "",
+  boardFilterTerm: "",
+  universeFilterTerm: "",
   fieldLibrarySearch: "",
   fieldLibraryNotice: "",
   customMetricDraft: {
@@ -356,6 +413,9 @@ const state = {
 };
 
 const elements = {
+  terminalGrid: document.querySelector(".terminal-grid"),
+  navLinks: [...document.querySelectorAll("[data-nav-screen]")],
+  screens: [...document.querySelectorAll("[data-screen]")],
   promptButtons: [...document.querySelectorAll(".prompt-pill")],
   presetButtons: [...document.querySelectorAll("[data-preset]")],
   tabs: [...document.querySelectorAll(".surface-tab")],
@@ -374,23 +434,34 @@ const elements = {
   resultsMeta: document.getElementById("results-meta"),
   symbolSearch: document.getElementById("symbol-search"),
   topbarSearch: document.getElementById("topbar-search-input"),
+  palettePopover: document.getElementById("palette-popover"),
+  paletteResults: document.getElementById("palette-results"),
+  paletteMeta: document.getElementById("palette-meta"),
   pulseStrip: document.getElementById("pulse-strip"),
   feedStatus: document.getElementById("feed-status-text"),
   lastUpdated: document.getElementById("last-updated"),
   connectionState: document.getElementById("connection-state"),
+  settingsFeedStatus: document.getElementById("settings-feed-status"),
+  settingsLastUpdated: document.getElementById("settings-last-updated"),
+  settingsAiStatus: document.getElementById("settings-ai-status"),
+  settingsRuntimeNote: document.getElementById("settings-runtime-note"),
   dataSourceNote: document.getElementById("data-source-note"),
+  dataModalCopy: document.getElementById("data-modal-copy"),
   apiKeyInput: document.getElementById("api-key-input"),
   saveApiKey: document.getElementById("save-api-key"),
   refreshMarket: document.getElementById("refresh-market"),
   watchlistCount: document.getElementById("watchlist-count"),
   watchlistList: document.getElementById("watchlist-list"),
   watchlistNote: document.getElementById("watchlist-note"),
+  watchlistScreenMeta: document.getElementById("watchlist-screen-meta"),
+  watchlistScreenList: document.getElementById("watchlist-screen-list"),
+  universeMeta: document.getElementById("universe-meta"),
+  universeSearch: document.getElementById("universe-search"),
+  universeList: document.getElementById("universe-list"),
   accountBadge: document.getElementById("account-badge"),
   accountCopy: document.getElementById("account-copy"),
   authModal: document.getElementById("auth-modal"),
   authModalClose: document.getElementById("auth-modal-close"),
-  dataModal: document.getElementById("data-modal"),
-  dataModalClose: document.getElementById("data-modal-close"),
   fieldLibraryModal: document.getElementById("field-library-modal"),
   fieldLibraryClose: document.getElementById("field-library-close"),
   fieldLibrarySearch: document.getElementById("field-library-search"),
@@ -407,6 +478,11 @@ const elements = {
   topbarSignIn: document.getElementById("topbar-signin"),
   topbarRegister: document.getElementById("topbar-register"),
   topbarSettings: document.getElementById("topbar-settings"),
+  settingsSignIn: document.getElementById("settings-signin"),
+  settingsRegister: document.getElementById("settings-register"),
+  settingsSignOut: document.getElementById("settings-signout"),
+  settingsAccountLabel: document.getElementById("settings-account-label"),
+  settingsAccountCopy: document.getElementById("settings-account-copy"),
   topbarAccount: document.getElementById("topbar-account"),
   accountTrigger: document.getElementById("account-trigger"),
   accountDrawer: document.getElementById("account-drawer"),
@@ -472,6 +548,7 @@ const elements = {
   spotlightTheme: document.getElementById("spotlight-theme"),
   spotlightMetrics: document.getElementById("spotlight-metrics"),
   spotlightNote: document.getElementById("spotlight-note"),
+  inspectorColumn: document.getElementById("inspector-column"),
 };
 
 bindEvents();
@@ -492,6 +569,12 @@ async function initialize() {
 }
 
 function bindEvents() {
+  elements.navLinks.forEach(button => {
+    button.addEventListener("click", () => {
+      setCurrentScreen(button.dataset.navScreen);
+    });
+  });
+
   elements.promptButtons.forEach(button => {
     button.addEventListener("click", () => {
       elements.aiQuery.value = button.dataset.prompt;
@@ -526,9 +609,21 @@ function bindEvents() {
     renderAuthState();
   });
   elements.topbarSettings.addEventListener("click", () => {
-    state.dataModalOpen = true;
+    setCurrentScreen("settings");
+  });
+  elements.settingsSignIn.addEventListener("click", () => {
+    state.authModalOpen = true;
+    state.accountMenuOpen = false;
+    setAuthMode("login");
     renderAuthState();
   });
+  elements.settingsRegister.addEventListener("click", () => {
+    state.authModalOpen = true;
+    state.accountMenuOpen = false;
+    setAuthMode("register");
+    renderAuthState();
+  });
+  elements.settingsSignOut.addEventListener("click", handleLogout);
   elements.accountTrigger.addEventListener("click", () => {
     if (!state.currentUser) {
       state.authModalOpen = true;
@@ -540,10 +635,6 @@ function bindEvents() {
   });
   elements.authModalClose.addEventListener("click", () => {
     state.authModalOpen = false;
-    renderAuthState();
-  });
-  elements.dataModalClose.addEventListener("click", () => {
-    state.dataModalOpen = false;
     renderAuthState();
   });
   elements.fieldLibraryClose.addEventListener("click", () => {
@@ -573,14 +664,36 @@ function bindEvents() {
     await refreshMarketData();
   });
   elements.symbolSearch.addEventListener("input", event => {
-    state.searchTerm = event.target.value.trim().toLowerCase();
-    elements.topbarSearch.value = event.target.value;
+    state.boardFilterTerm = event.target.value.trim().toLowerCase();
     render();
   });
-  elements.topbarSearch.addEventListener("input", event => {
-    state.searchTerm = event.target.value.trim().toLowerCase();
-    elements.symbolSearch.value = event.target.value;
+  elements.universeSearch.addEventListener("input", event => {
+    state.universeFilterTerm = event.target.value.trim().toLowerCase();
     render();
+  });
+  elements.topbarSearch.addEventListener("focus", () => {
+    state.paletteOpen = true;
+    state.paletteQuery = elements.topbarSearch.value.trim().toLowerCase();
+    renderPalette();
+  });
+  elements.topbarSearch.addEventListener("input", event => {
+    state.paletteOpen = true;
+    state.paletteQuery = event.target.value.trim().toLowerCase();
+    renderPalette();
+  });
+  elements.topbarSearch.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      state.paletteOpen = false;
+      renderPalette();
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const [firstMatch] = getCommandPaletteItems(state.paletteQuery);
+      if (firstMatch) {
+        applyPaletteAction(firstMatch);
+      }
+    }
   });
   elements.momentumFilter.addEventListener("input", event => {
     elements.momentumValue.textContent = event.target.value;
@@ -639,20 +752,34 @@ function bindEvents() {
         state.authModalOpen = false;
         renderAuthState();
       }
-      if (event.target === elements.dataModal) {
-        state.dataModalOpen = false;
-        renderAuthState();
-      }
       if (event.target === elements.fieldLibraryModal) {
         state.fieldLibraryOpen = false;
         renderFieldLibrary();
       }
-      return;
     }
-    if (!event.target.closest(".account-shell")) {
+    if (
+      state.paletteOpen &&
+      !event.target.closest(".topbar-search") &&
+      !event.target.closest(".palette-popover")
+    ) {
+      state.paletteOpen = false;
+      renderPalette();
+    }
+    if (state.accountMenuOpen && !event.target.closest(".account-shell")) {
       state.accountMenuOpen = false;
       renderAuthState();
     }
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key !== "/") {
+      return;
+    }
+    if (event.target instanceof HTMLElement && event.target.closest("input, textarea, select")) {
+      return;
+    }
+    event.preventDefault();
+    elements.topbarSearch.focus();
+    elements.topbarSearch.select();
   });
 }
 
@@ -1515,6 +1642,195 @@ function setSurfaceMode(mode) {
   render();
 }
 
+function setCurrentScreen(screen) {
+  if (!SCREEN_DEFINITIONS.some(definition => definition.key === screen)) {
+    return;
+  }
+  state.currentScreen = screen;
+  state.paletteOpen = false;
+  render();
+}
+
+function normalizeSearchText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function formatPriceCell(value) {
+  return value == null ? "--" : `$${Number(value).toFixed(2)}`;
+}
+
+function formatPercentCell(value) {
+  return value == null ? "--" : `${formatSigned(value)}%`;
+}
+
+function formatRelativeVolumeCell(value) {
+  return value == null ? "--" : `${Number(value).toFixed(1)}x`;
+}
+
+function formatScoreCell(value) {
+  return value == null ? "--" : String(value);
+}
+
+function getCompactBriefMetric(label, value) {
+  const text = String(value || "");
+  if (!text) {
+    return "--";
+  }
+
+  if (label === "Hold bias") {
+    return text
+      .replace("Same-day follow-through", "Same-day continuation")
+      .replace("Intraday to overnight", "Flexible intraday");
+  }
+
+  if (label === "Monitor") {
+    if (/trap protection/i.test(text)) {
+      return "Trap protection active";
+    }
+    if (/relative volume/i.test(text)) {
+      return "Volume-sensitive scan";
+    }
+    if (/balancing conviction/i.test(text)) {
+      return "Balanced conviction";
+    }
+    const ruleMatch = text.match(/(AND|OR|NAND|NOR) logic with (\d+) custom rule/i);
+    if (ruleMatch) {
+      return `${ruleMatch[1].toUpperCase()} logic, ${ruleMatch[2]} rules`;
+    }
+  }
+
+  return text;
+}
+
+function getCommandPaletteItems(query = "") {
+  const needle = normalizeSearchText(query);
+  const liveUniverse = getLiveUniverse();
+  const symbolSource = trackedUniverse.map(meta => {
+    const live = liveUniverse.find(stock => stock.symbol === meta.symbol);
+    return live ? { ...meta, ...live } : meta;
+  });
+
+  const items = [];
+  SCREEN_DEFINITIONS.forEach(screen => {
+    items.push({
+      id: `screen-${screen.key}`,
+      type: "screen",
+      value: screen.key,
+      label: screen.label,
+      description: screen.description,
+      keywords: [screen.label, screen.description, ...(screen.aliases || [])].join(" ").toLowerCase(),
+    });
+  });
+
+  Object.entries(CLASSIC_PRESETS).forEach(([key, preset]) => {
+    items.push({
+      id: `preset-${key}`,
+      type: "preset",
+      value: key,
+      label: preset.label,
+      description: preset.summary,
+      keywords: [preset.label, preset.summary, key, ...Object.keys(SEARCH_ALIASES).filter(alias => SEARCH_ALIASES[alias] === key)].join(" ").toLowerCase(),
+    });
+  });
+
+  symbolSource.forEach(stock => {
+    items.push({
+      id: `symbol-${stock.symbol}`,
+      type: "symbol",
+      value: stock.symbol,
+      label: stock.symbol,
+      description: `${stock.name} - ${stock.sector} - ${stock.theme}`,
+      keywords: [stock.symbol, stock.name, stock.sector, stock.theme, stock.session, stock.marketCap].join(" ").toLowerCase(),
+    });
+  });
+
+  [...new Set(symbolSource.map(stock => stock.sector))].forEach(sector => {
+    items.push({
+      id: `sector-${sector}`,
+      type: "sector",
+      value: sector,
+      label: sector,
+      description: "Filter the universe by sector",
+      keywords: [sector, ...Object.keys(SEARCH_ALIASES).filter(alias => SEARCH_ALIASES[alias] === sector)].join(" ").toLowerCase(),
+    });
+  });
+
+  [...new Set(symbolSource.map(stock => stock.theme))].forEach(theme => {
+    items.push({
+      id: `theme-${theme}`,
+      type: "theme",
+      value: theme,
+      label: theme,
+      description: "Filter the universe by theme",
+      keywords: [theme, ...Object.keys(SEARCH_ALIASES).filter(alias => SEARCH_ALIASES[alias] === theme)].join(" ").toLowerCase(),
+    });
+  });
+
+  if (!needle) {
+    return items.slice(0, 12);
+  }
+
+  const aliasValue = SEARCH_ALIASES[needle] || LOCAL_SEARCH_ALIASES[needle];
+  return items
+    .filter(item => {
+      if ((needle.includes("sector") || needle.includes("板块")) && item.type === "sector") {
+        return true;
+      }
+      if ((needle.includes("theme") || needle.includes("主题")) && item.type === "theme") {
+        return true;
+      }
+      if ((needle.includes("preset") || needle.includes("模板") || needle.includes("预设")) && item.type === "preset") {
+        return true;
+      }
+      if ((needle.includes("screen") || needle.includes("页面") || needle.includes("界面")) && item.type === "screen") {
+        return true;
+      }
+      if (item.keywords.includes(needle)) {
+        return true;
+      }
+      if (!aliasValue) {
+        return false;
+      }
+      return item.value === aliasValue || item.label.toLowerCase() === aliasValue.toLowerCase();
+    })
+    .slice(0, 12);
+}
+
+function applyPaletteAction(item) {
+  state.paletteOpen = false;
+  elements.topbarSearch.value = "";
+  state.paletteQuery = "";
+
+  if (item.type === "screen") {
+    setCurrentScreen(item.value);
+    return;
+  }
+
+  if (item.type === "preset") {
+    setCurrentScreen("scanner");
+    applyClassicPreset(item.value);
+    return;
+  }
+
+  if (item.type === "symbol") {
+    state.selectedSymbol = item.value;
+    state.universeFilterTerm = item.value.toLowerCase();
+    elements.universeSearch.value = item.value;
+    setCurrentScreen("universe");
+    if (!state.historyMap[item.value]) {
+      loadHistory(item.value);
+      return;
+    }
+    return;
+  }
+
+  if (item.type === "sector" || item.type === "theme") {
+    state.universeFilterTerm = item.value.toLowerCase();
+    elements.universeSearch.value = item.value;
+    setCurrentScreen("universe");
+  }
+}
+
 function applyClassicFilters() {
   const session = elements.sessionFilter.value;
   state.classicFilters = {
@@ -2121,23 +2437,67 @@ function getRankedUniverse() {
     .map(stock => ({ ...stock, score: state.profile.score(stock) }))
     .filter(stock => state.profile.filter(stock))
     .filter(stock => {
-      if (!state.searchTerm) {
+      if (!state.boardFilterTerm) {
         return true;
       }
 
       const haystack = `${stock.symbol} ${stock.name} ${stock.theme} ${stock.sector}`.toLowerCase();
-      return haystack.includes(state.searchTerm);
+      return haystack.includes(state.boardFilterTerm);
     })
     .sort(compareRankedStocks);
 }
 
+function getUniverseResults() {
+  const liveUniverse = getLiveUniverse();
+  return trackedUniverse
+    .map(meta => {
+      const live = liveUniverse.find(stock => stock.symbol === meta.symbol);
+      return live
+        ? { ...live, score: state.profile.score(live) }
+        : {
+            ...meta,
+            price: null,
+            changePct: null,
+            relativeVolume: null,
+            score: null,
+          };
+    })
+    .filter(stock => {
+      if (!state.universeFilterTerm) {
+        return true;
+      }
+
+      const haystack = `${stock.symbol} ${stock.name} ${stock.theme} ${stock.sector} ${stock.session}`.toLowerCase();
+      return haystack.includes(state.universeFilterTerm);
+    })
+    .sort((left, right) => left.symbol.localeCompare(right.symbol));
+}
+
+function getWatchlistResults() {
+  const universe = getUniverseResults();
+  return state.watchlist
+    .map(symbol => universe.find(stock => stock.symbol === symbol))
+    .filter(Boolean);
+}
+
 function render() {
   const ranked = getRankedUniverse();
-  if (ranked.length && !ranked.some(stock => stock.symbol === state.selectedSymbol)) {
-    state.selectedSymbol = ranked[0].symbol;
+  const universe = getUniverseResults();
+  const watchlistResults = getWatchlistResults();
+  const selectable =
+    state.currentScreen === "universe"
+      ? universe
+      : state.currentScreen === "watchlist"
+        ? watchlistResults
+        : ranked;
+
+  if (selectable.length && !selectable.some(stock => stock.symbol === state.selectedSymbol)) {
+    state.selectedSymbol = selectable[0].symbol;
   }
 
   renderAuthState();
+  renderScreenState();
+  renderPalette();
   renderFormulaPanelState();
   renderFormulaRules();
   renderCustomMetricState();
@@ -2147,13 +2507,17 @@ function render() {
   renderScanDigest(ranked);
   renderFilterChips();
   renderWatchlist();
+  renderUniverseScreen(universe);
+  renderWatchlistScreen(watchlistResults);
   renderBrief(ranked);
   renderOpportunityList(ranked);
   renderSpotlight(ranked);
-  renderInspector(ranked);
-  renderExecutionMap(ranked);
+  renderInspector(state.currentScreen === "universe" ? universe : ranked);
+  renderExecutionMap(state.currentScreen === "universe" ? universe : ranked);
   renderConnectionState();
   elements.resultsSurface.dataset.view = state.resultsView;
+  elements.symbolSearch.value = state.boardFilterTerm;
+  elements.universeSearch.value = state.universeFilterTerm;
   elements.viewTable.classList.toggle("active", state.resultsView === "table");
   elements.viewCards.classList.toggle("active", state.resultsView === "cards");
   elements.lastUpdated.textContent = state.lastUpdatedAt
@@ -2163,6 +2527,8 @@ function render() {
         second: "2-digit",
       })}`
     : "Waiting for first data pull";
+  elements.settingsLastUpdated.textContent = elements.lastUpdated.textContent;
+  elements.settingsAiStatus.textContent = `${state.aiRuntime.provider}${state.aiRuntime.model ? ` / ${state.aiRuntime.model}` : ""}`;
 }
 
 function renderAuthState() {
@@ -2171,7 +2537,6 @@ function renderAuthState() {
   });
 
   elements.authModal.hidden = !state.authModalOpen;
-  elements.dataModal.hidden = !state.dataModalOpen;
   elements.accountDrawer.hidden = !state.accountMenuOpen || !state.currentUser;
   elements.accountTrigger.setAttribute("aria-expanded", String(state.accountMenuOpen));
   elements.accountAvatar.textContent = getAccountInitials(state.currentUser);
@@ -2180,13 +2545,20 @@ function renderAuthState() {
   if (state.currentUser) {
     elements.accountBadge.textContent = getAccountLabel(state.currentUser);
     elements.topbarAccount.textContent = getAccountLabel(state.currentUser);
+    elements.settingsAccountLabel.textContent = getAccountLabel(state.currentUser);
     elements.accountCopy.textContent = state.currentUser.email_confirmed_at
+      ? "Signed in. Watchlists and saved state now follow your profile."
+      : "Account created. Confirm your email to fully activate cross-device access.";
+    elements.settingsAccountCopy.textContent = state.currentUser.email_confirmed_at
       ? "Signed in. Watchlists and saved state now follow your profile."
       : "Account created. Confirm your email to fully activate cross-device access.";
     elements.watchlistNote.textContent =
       "Signed-in mode syncs this watchlist to your account, so it follows you after login.";
     elements.topbarSignIn.hidden = true;
     elements.topbarRegister.hidden = true;
+    elements.settingsSignIn.hidden = true;
+    elements.settingsRegister.hidden = true;
+    elements.settingsSignOut.hidden = false;
     elements.authLogout.hidden = false;
     elements.authEmail.disabled = true;
     elements.authPassword.disabled = true;
@@ -2199,12 +2571,18 @@ function renderAuthState() {
   } else {
     elements.accountBadge.textContent = "Guest mode";
     elements.topbarAccount.textContent = "Guest mode";
+    elements.settingsAccountLabel.textContent = "Guest mode";
     elements.accountCopy.textContent =
       "Create an account to keep watchlists and saved state tied to your profile.";
+    elements.settingsAccountCopy.textContent =
+      "Create an account to sync your watchlist and saved screen state across sessions.";
     elements.watchlistNote.textContent =
       "Guest mode keeps this list in this browser. Sign in to sync it to your account.";
     elements.topbarSignIn.hidden = false;
     elements.topbarRegister.hidden = false;
+    elements.settingsSignIn.hidden = false;
+    elements.settingsRegister.hidden = false;
+    elements.settingsSignOut.hidden = true;
     elements.authLogout.hidden = true;
     elements.authEmail.disabled = false;
     elements.authPassword.disabled = false;
@@ -2220,6 +2598,59 @@ function renderAuthState() {
   elements.authPasswordWrap.hidden = false;
   elements.authSubmit.hidden = false;
   elements.authGoogle.hidden = false;
+}
+
+function renderScreenState() {
+  elements.navLinks.forEach(button => {
+    button.classList.toggle("active", button.dataset.navScreen === state.currentScreen);
+  });
+  elements.screens.forEach(screen => {
+    const active = screen.dataset.screen === state.currentScreen;
+    screen.hidden = !active;
+    screen.classList.toggle("active", active);
+  });
+
+  const inspectorEnabled = state.currentScreen === "scanner" || state.currentScreen === "universe";
+  elements.inspectorColumn.hidden = !inspectorEnabled;
+  elements.terminalGrid.classList.toggle("no-inspector", !inspectorEnabled);
+}
+
+function renderPalette() {
+  const query = normalizeSearchText(state.paletteQuery);
+  elements.palettePopover.hidden = !state.paletteOpen;
+  if (!state.paletteOpen) {
+    return;
+  }
+
+  const items = getCommandPaletteItems(query);
+  elements.paletteMeta.textContent = query
+    ? `${items.length} match${items.length === 1 ? "" : "es"} for "${query}"`
+    : "Type to search symbols, sectors, themes, presets, and screens.";
+
+  elements.paletteResults.innerHTML = items.length
+    ? items
+        .map(
+          item => `
+            <button class="palette-result" type="button" data-palette-id="${item.id}">
+              <div>
+                <span class="palette-type">${item.type}</span>
+                <strong>${item.label}</strong>
+              </div>
+              <span>${item.description}</span>
+            </button>
+          `,
+        )
+        .join("")
+    : `<div class="palette-empty"><p class="muted">No matches yet.</p><p class="muted small-note">Try a symbol, theme, preset, or screen name.</p></div>`;
+
+  [...elements.paletteResults.querySelectorAll("[data-palette-id]")].forEach(button => {
+    button.addEventListener("click", () => {
+      const item = items.find(entry => entry.id === button.dataset.paletteId);
+      if (item) {
+        applyPaletteAction(item);
+      }
+    });
+  });
 }
 
 function renderSurfaceState() {
@@ -2284,7 +2715,7 @@ function renderFormulaRulesLegacy() {
             <input data-rule-prop="value" type="${getFormulaFieldMeta(rule.field)?.type === "text" ? "text" : "number"}" step="any" value="${rule.value}" />
           </label>
           <button class="formula-remove" data-remove-rule="${rule.id}" type="button" aria-label="Remove rule">
-            ×
+            x
           </button>
         </div>
       `,
@@ -2303,7 +2734,7 @@ function renderFormulaRulesLegacy() {
   });
 
   [...elements.formulaRuleList.querySelectorAll("[data-remove-rule]")].forEach(button => {
-    button.textContent = "×";
+    button.textContent = "x";
     button.addEventListener("click", () => {
       state.classicFilters.formulaRules = state.classicFilters.formulaRules.filter(
         rule => rule.id !== button.dataset.removeRule,
@@ -2357,7 +2788,7 @@ function renderFieldLibrary() {
                             <span class="availability-badge ${field.availability}">${getFieldAvailabilityLabel(field.availability)}</span>
                           </div>
                           <p>${field.description || field.lockedReason || ""}</p>
-                          <span>${field.subcategory || ""}${field.source ? ` · ${field.source}` : ""}</span>
+                          <span>${field.subcategory || ""}${field.source ? ` - ${field.source}` : ""}</span>
                         </div>
                       </button>
                     `,
@@ -2575,6 +3006,15 @@ function renderConnectionState() {
     managedByServer
       ? "Server-managed market data is active. Public visitors do not need to supply their own key, and server-side caching now reduces duplicate upstream calls."
       : "Free-tier mode tracks a curated universe and refreshes every four minutes to stay within API-credit limits.";
+
+  elements.settingsFeedStatus.textContent = elements.feedStatus.textContent;
+  elements.settingsLastUpdated.textContent = elements.lastUpdated.textContent;
+  elements.settingsAiStatus.textContent = `${state.aiRuntime.provider}${state.aiRuntime.model ? ` / ${state.aiRuntime.model}` : ""}`;
+  elements.settingsRuntimeNote.textContent = state.loadError
+    ? state.loadError
+    : managedByServer
+      ? "Server-side market data is active for this deployment, with shared caching to reduce duplicate requests."
+      : "Free-tier mode is using a curated universe, shared caching, and slower refresh intervals.";
 }
 
 function renderPulseStrip(ranked) {
@@ -2616,10 +3056,17 @@ function renderWatchlist() {
     return;
   }
 
-  const liveUniverse = getLiveUniverse();
+  const universe = getUniverseResults();
   const savedStocks = state.watchlist
-    .map(symbol => liveUniverse.find(stock => stock.symbol === symbol))
-    .filter(Boolean);
+    .map(symbol => universe.find(stock => stock.symbol === symbol))
+    .filter(Boolean)
+    .slice(0, 4);
+
+  if (!savedStocks.length) {
+    elements.watchlistList.innerHTML =
+      `<p class="muted">Saved symbols are ready, but the current feed has not returned matching rows yet.</p>`;
+    return;
+  }
 
   elements.watchlistList.innerHTML = savedStocks
     .map(
@@ -2629,7 +3076,7 @@ function renderWatchlist() {
             <strong>${stock.symbol}</strong>
             <span>${stock.theme}</span>
           </div>
-          <span class="${stock.changePct >= 0 ? "positive" : "negative"}">${formatSigned(stock.changePct)}%</span>
+          <span class="${stock.changePct == null ? "" : stock.changePct >= 0 ? "positive" : "negative"}">${formatPercentCell(stock.changePct)}</span>
         </button>
       `,
     )
@@ -2638,6 +3085,96 @@ function renderWatchlist() {
   [...elements.watchlistList.querySelectorAll("[data-watch-symbol]")].forEach(button => {
     button.addEventListener("click", async () => {
       state.selectedSymbol = button.dataset.watchSymbol;
+      if (!state.historyMap[state.selectedSymbol]) {
+        await loadHistory(state.selectedSymbol);
+      } else {
+        render();
+      }
+    });
+  });
+}
+
+function renderUniverseScreen(universe) {
+  elements.universeMeta.textContent = `${universe.length} name${universe.length === 1 ? "" : "s"}`;
+
+  if (!universe.length) {
+    elements.universeList.innerHTML = `
+      <div class="opportunity-empty compact-empty">
+        <div class="ticker-meta">
+          <strong>No universe matches</strong>
+          <span>Clear the universe filter or wait for the next quote refresh.</span>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  elements.universeList.innerHTML = universe
+    .map(
+      stock => `
+        <button class="universe-row ${stock.symbol === state.selectedSymbol ? "active" : ""}" data-universe-symbol="${stock.symbol}" type="button">
+          <span class="symbol-cell"><strong>${stock.symbol}</strong></span>
+          <span>${stock.name}</span>
+          <span>${stock.sector}</span>
+          <span>${stock.theme}</span>
+          <span>${formatPriceCell(stock.price)}</span>
+          <span class="${stock.changePct == null ? "" : stock.changePct >= 0 ? "positive" : "negative"}">${formatPercentCell(stock.changePct)}</span>
+          <span>${formatRelativeVolumeCell(stock.relativeVolume)}</span>
+          <span>${formatScoreCell(stock.score)}</span>
+        </button>
+      `,
+    )
+    .join("");
+
+  [...elements.universeList.querySelectorAll("[data-universe-symbol]")].forEach(button => {
+    button.addEventListener("click", async () => {
+      state.selectedSymbol = button.dataset.universeSymbol;
+      if (!state.historyMap[state.selectedSymbol]) {
+        await loadHistory(state.selectedSymbol);
+      } else {
+        render();
+      }
+    });
+  });
+}
+
+function renderWatchlistScreen(watchlistResults) {
+  elements.watchlistScreenMeta.textContent = `${watchlistResults.length} saved`;
+  if (!watchlistResults.length) {
+    elements.watchlistScreenList.innerHTML = `
+      <div class="opportunity-empty compact-empty">
+        <div class="ticker-meta">
+          <strong>${state.watchlist.length ? "Saved symbols are waiting on live quotes" : "No saved symbols yet"}</strong>
+          <span>${
+            state.watchlist.length
+              ? "Watchlist symbols are stored, but the current feed has not loaded matching live quotes yet."
+              : "Save a symbol from the scanner or universe to turn this into a working watchlist."
+          }</span>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  elements.watchlistScreenList.innerHTML = watchlistResults
+    .map(
+      stock => `
+        <button class="universe-row ${stock.symbol === state.selectedSymbol ? "active" : ""}" data-watchlist-symbol="${stock.symbol}" type="button">
+          <span class="symbol-cell"><strong>${stock.symbol}</strong></span>
+          <span>${stock.theme}</span>
+          <span>${toTitleCase(stock.session)}</span>
+          <span>${formatPriceCell(stock.price)}</span>
+          <span class="${stock.changePct == null ? "" : stock.changePct >= 0 ? "positive" : "negative"}">${formatPercentCell(stock.changePct)}</span>
+          <span>${formatRelativeVolumeCell(stock.relativeVolume)}</span>
+          <span>${formatScoreCell(stock.score)}</span>
+        </button>
+      `,
+    )
+    .join("");
+
+  [...elements.watchlistScreenList.querySelectorAll("[data-watchlist-symbol]")].forEach(button => {
+    button.addEventListener("click", async () => {
+      state.selectedSymbol = button.dataset.watchlistSymbol;
       if (!state.historyMap[state.selectedSymbol]) {
         await loadHistory(state.selectedSymbol);
       } else {
@@ -2849,7 +3386,7 @@ function renderBrief(ranked) {
       ([label, value]) => `
         <div>
           <dt>${label}</dt>
-          <dd>${value}</dd>
+          <dd>${getCompactBriefMetric(label, value)}</dd>
         </div>
       `,
     )
@@ -2892,7 +3429,7 @@ function renderOpportunityListLegacy(ranked) {
                   stock => `
                     <button class="near-miss-chip" data-symbol="${stock.symbol}">
                       <strong>${stock.symbol}</strong>
-                      <span>${stock.score} score · ${stock.relativeVolume.toFixed(1)}x rel vol</span>
+                      <span>${stock.score} score - ${stock.relativeVolume.toFixed(1)}x rel vol</span>
                     </button>
                   `,
                 )
@@ -2919,7 +3456,7 @@ function renderOpportunityListLegacy(ranked) {
       stock => `
         <button class="opportunity-row ${stock.symbol === state.selectedSymbol ? "active" : ""}" data-symbol="${stock.symbol}">
           <span class="save-cell">
-            <span class="save-button ${state.watchlist.includes(stock.symbol) ? "saved" : ""}" data-save-symbol="${stock.symbol}" role="button" aria-label="Save ${stock.symbol}">${state.watchlist.includes(stock.symbol) ? "★" : "☆"}</span>
+            <span class="save-button ${state.watchlist.includes(stock.symbol) ? "saved" : ""}" data-save-symbol="${stock.symbol}" role="button" aria-label="Save ${stock.symbol}">${state.watchlist.includes(stock.symbol) ? "saved" : "save"}</span>
           </span>
           <div class="ticker-meta">
             <strong>${stock.symbol}</strong>
@@ -2955,7 +3492,7 @@ function renderOpportunityListLegacy(ranked) {
 
 function renderOpportunityList(ranked) {
   elements.resultsTitle.textContent = state.profile.title;
-  elements.resultsMeta.textContent = `${ranked.length} exact matches · ${
+  elements.resultsMeta.textContent = `${ranked.length} exact matches - ${
     state.resultsView === "table" ? "Table view" : "Card view"
   }`;
 
@@ -2978,7 +3515,7 @@ function renderOpportunityList(ranked) {
                   stock => `
                     <button class="near-miss-chip" data-symbol="${stock.symbol}">
                       <strong>${stock.symbol}</strong>
-                      <span>${stock.score} score · ${stock.relativeVolume.toFixed(1)}x rel vol</span>
+                      <span>${stock.score} score - ${stock.relativeVolume.toFixed(1)}x rel vol</span>
                     </button>
                   `,
                 )
@@ -3123,10 +3660,46 @@ function renderInspector(ranked) {
   const score = selected.score ?? state.profile.score(selected);
   const history = state.historyMap[selected.symbol] || [];
 
+  if (selected.price == null) {
+    elements.inspectorSymbol.textContent = selected.symbol;
+    elements.inspectorTag.textContent = selected.trend || "Tracked universe";
+    elements.inspectorPrice.textContent = "--";
+    elements.inspectorScore.textContent = "--";
+    elements.signalList.innerHTML = [
+      `${selected.symbol} is available in the tracked universe, but SignalDeck is still waiting on a fresh quote snapshot.`,
+      `${selected.sector} and ${selected.theme} metadata are ready, so you can still route here from command search and the universe browser.`,
+      "Refresh the market feed or wait for the next shared snapshot to unlock live price, risk, and microstructure detail.",
+    ]
+      .map(text => `<li>${text}</li>`)
+      .join("");
+    elements.riskFill.style.width = "0%";
+    elements.riskScoreLabel.textContent = "Awaiting quote";
+    elements.riskNote.textContent = "Risk context appears once a live quote arrives for the selected symbol.";
+    elements.contextGrid.innerHTML = [
+      ["Sector", selected.sector],
+      ["Theme", selected.theme],
+      ["Market cap", selected.marketCap],
+      ["Session bias", toTitleCase(selected.session)],
+      ["Feed state", "Waiting for quote"],
+      ["History", history.length ? "Cached bars loaded" : "No recent bars yet"],
+    ]
+      .map(
+        ([label, value]) => `
+          <div>
+            <dt>${label}</dt>
+            <dd>${value}</dd>
+          </div>
+        `,
+      )
+      .join("");
+    renderSparkline([]);
+    return;
+  }
+
   elements.inspectorSymbol.textContent = selected.symbol;
   elements.inspectorTag.textContent = selected.trend;
-  elements.inspectorPrice.textContent = `$${selected.price.toFixed(2)}`;
-  elements.inspectorScore.textContent = score;
+  elements.inspectorPrice.textContent = formatPriceCell(selected.price);
+  elements.inspectorScore.textContent = formatScoreCell(score);
 
   const signals = [
     `${selected.symbol} is showing <strong>${selected.momentum}</strong> momentum with <strong>${selected.relativeVolume.toFixed(1)}x</strong> relative volume.`,
@@ -3182,6 +3755,36 @@ function renderExecutionMap(ranked) {
       "This panel will turn quote data into a simple trading plan and confirmation checklist.";
     elements.executionGridList.innerHTML = "";
     elements.monitorList.innerHTML = `<li>Connect real market data to enable the execution map.</li>`;
+    return;
+  }
+
+  if (selected.price == null) {
+    elements.executionHeadline.textContent = `${selected.symbol} is routed into the workspace, but execution notes need a fresh quote snapshot.`;
+    elements.executionChip.textContent = `${toTitleCase(selected.session)} setup`;
+    elements.executionBody.textContent =
+      "Metadata routing is active, so you can still review sector, theme, and session context while the live feed catches up.";
+    elements.executionGridList.innerHTML = [
+      ["Theme", selected.theme],
+      ["Sector", selected.sector],
+      ["Session bias", toTitleCase(selected.session)],
+      ["Feed state", "Waiting for quote"],
+    ]
+      .map(
+        ([label, value]) => `
+          <div>
+            <dt>${label}</dt>
+            <dd>${value}</dd>
+          </div>
+        `,
+      )
+      .join("");
+    elements.monitorList.innerHTML = [
+      "Refresh the market feed to unlock live execution metrics.",
+      "Use Universe search or Watchlist to keep routing symbols without blocking on the feed.",
+      "SignalDeck will restore confirmation and invalidation notes after the next successful quote pull.",
+    ]
+      .map(item => `<li>${item}</li>`)
+      .join("");
     return;
   }
 
@@ -3452,3 +4055,5 @@ function formatCompactNumber(value) {
     maximumFractionDigits: 1,
   }).format(value);
 }
+
+
