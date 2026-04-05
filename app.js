@@ -10,13 +10,37 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_
 
 const trackedUniverse = [
   { symbol: "NVDA", name: "NVIDIA", session: "intraday", trend: "Intraday continuation", sector: "Semiconductors", theme: "AI infrastructure", marketCap: "Mega cap" },
-  { symbol: "MSFT", name: "Microsoft", session: "swing", trend: "Blue-chip swing", sector: "Software", theme: "Platform leader", marketCap: "Mega cap" },
   { symbol: "AMD", name: "Advanced Micro Devices", session: "intraday", trend: "Opening drive", sector: "Semiconductors", theme: "Acceleration trade", marketCap: "Large cap" },
-  { symbol: "META", name: "Meta Platforms", session: "overnight", trend: "Overnight carry", sector: "Internet", theme: "Digital ads", marketCap: "Mega cap" },
   { symbol: "AVGO", name: "Broadcom", session: "intraday", trend: "Trend acceleration", sector: "Semiconductors", theme: "Infrastructure leadership", marketCap: "Mega cap" },
+  { symbol: "MU", name: "Micron Technology", session: "intraday", trend: "Memory breakout", sector: "Semiconductors", theme: "Memory cycle", marketCap: "Large cap" },
+  { symbol: "QCOM", name: "Qualcomm", session: "swing", trend: "Base continuation", sector: "Semiconductors", theme: "Mobile AI", marketCap: "Large cap" },
+  { symbol: "ARM", name: "Arm Holdings", session: "intraday", trend: "High-beta follow-through", sector: "Semiconductors", theme: "Design IP", marketCap: "Large cap" },
+  { symbol: "MSFT", name: "Microsoft", session: "swing", trend: "Blue-chip swing", sector: "Software", theme: "Platform leader", marketCap: "Mega cap" },
+  { symbol: "ORCL", name: "Oracle", session: "overnight", trend: "Enterprise carry", sector: "Software", theme: "Enterprise AI", marketCap: "Mega cap" },
+  { symbol: "CRM", name: "Salesforce", session: "swing", trend: "Workflow follow-through", sector: "Software", theme: "Workflow software", marketCap: "Mega cap" },
+  { symbol: "ADBE", name: "Adobe", session: "swing", trend: "Software momentum", sector: "Software", theme: "Creative cloud", marketCap: "Mega cap" },
+  { symbol: "PANW", name: "Palo Alto Networks", session: "intraday", trend: "Cybersecurity drive", sector: "Software", theme: "Cybersecurity", marketCap: "Mega cap" },
+  { symbol: "AAPL", name: "Apple", session: "overnight", trend: "Steady carry", sector: "Internet", theme: "Ecosystem strength", marketCap: "Mega cap" },
+  { symbol: "GOOGL", name: "Alphabet", session: "swing", trend: "Base breakout", sector: "Internet", theme: "Search and cloud", marketCap: "Mega cap" },
+  { symbol: "AMZN", name: "Amazon", session: "overnight", trend: "Cloud continuation", sector: "Internet", theme: "Cloud and consumer", marketCap: "Mega cap" },
+  { symbol: "META", name: "Meta Platforms", session: "overnight", trend: "Overnight carry", sector: "Internet", theme: "Digital ads", marketCap: "Mega cap" },
+  { symbol: "NFLX", name: "Netflix", session: "swing", trend: "Momentum hold", sector: "Internet", theme: "Streaming momentum", marketCap: "Mega cap" },
+  { symbol: "UBER", name: "Uber Technologies", session: "intraday", trend: "Consumer platform drive", sector: "Internet", theme: "Mobility platform", marketCap: "Large cap" },
   { symbol: "LLY", name: "Eli Lilly", session: "swing", trend: "Quality leader", sector: "Healthcare", theme: "Defensive growth", marketCap: "Mega cap" },
+  { symbol: "UNH", name: "UnitedHealth", session: "overnight", trend: "Defensive carry", sector: "Healthcare", theme: "Managed care", marketCap: "Mega cap" },
   { symbol: "JPM", name: "JPMorgan Chase", session: "overnight", trend: "Low-vol carry", sector: "Financials", theme: "Rate resilience", marketCap: "Mega cap" },
+  { symbol: "BAC", name: "Bank of America", session: "overnight", trend: "Value carry", sector: "Financials", theme: "Money center banks", marketCap: "Mega cap" },
+  { symbol: "V", name: "Visa", session: "swing", trend: "Quality compounder", sector: "Financials", theme: "Payments quality", marketCap: "Mega cap" },
+  { symbol: "GS", name: "Goldman Sachs", session: "intraday", trend: "Capital markets impulse", sector: "Financials", theme: "Capital markets", marketCap: "Large cap" },
+  { symbol: "MA", name: "Mastercard", session: "swing", trend: "Payment rail continuation", sector: "Financials", theme: "Payments quality", marketCap: "Mega cap" },
   { symbol: "COST", name: "Costco", session: "overnight", trend: "Steady hold", sector: "Consumer", theme: "Defensive compounder", marketCap: "Mega cap" },
+  { symbol: "WMT", name: "Walmart", session: "overnight", trend: "Defensive carry", sector: "Consumer", theme: "Value retail", marketCap: "Mega cap" },
+  { symbol: "HD", name: "Home Depot", session: "swing", trend: "Cyclical swing", sector: "Consumer", theme: "Housing spend", marketCap: "Mega cap" },
+  { symbol: "TSLA", name: "Tesla", session: "intraday", trend: "High-beta opening drive", sector: "Consumer", theme: "EV beta", marketCap: "Mega cap" },
+  { symbol: "XOM", name: "Exxon Mobil", session: "overnight", trend: "Cash-flow carry", sector: "Energy", theme: "Energy cash flow", marketCap: "Mega cap" },
+  { symbol: "CVX", name: "Chevron", session: "overnight", trend: "Integrated energy carry", sector: "Energy", theme: "Integrated energy", marketCap: "Mega cap" },
+  { symbol: "CAT", name: "Caterpillar", session: "swing", trend: "Industrial swing", sector: "Industrials", theme: "Industrial cyclicals", marketCap: "Mega cap" },
+  { symbol: "GE", name: "GE Aerospace", session: "swing", trend: "Industrial leadership", sector: "Industrials", theme: "Aerospace demand", marketCap: "Mega cap" },
 ];
 
 const FORMULA_FIELDS = [
@@ -557,6 +581,7 @@ initialize();
 
 async function initialize() {
   elements.apiKeyInput.value = state.apiKey;
+  populateClassicFilterOptions();
   syncClassicControls();
   runAiQuery(elements.aiQuery.value.trim());
   render();
@@ -566,6 +591,40 @@ async function initialize() {
   setInterval(() => {
     refreshMarketData({ quiet: true });
   }, REFRESH_INTERVAL_MS);
+}
+
+function setSelectOptions(select, values, allLabel, currentValue = "all") {
+  const uniqueValues = [...new Set(values.filter(Boolean))].sort((left, right) => left.localeCompare(right));
+  if (currentValue && currentValue !== "all" && !uniqueValues.includes(currentValue)) {
+    uniqueValues.unshift(currentValue);
+  }
+
+  select.innerHTML = "";
+  select.append(new Option(allLabel, "all"));
+  uniqueValues.forEach(value => {
+    select.append(new Option(value, value));
+  });
+}
+
+function populateClassicFilterOptions() {
+  setSelectOptions(
+    elements.sectorFilter,
+    trackedUniverse.map(stock => stock.sector),
+    "All sectors",
+    state.classicFilters.sector,
+  );
+  setSelectOptions(
+    elements.marketCapFilter,
+    trackedUniverse.map(stock => stock.marketCap),
+    "All caps",
+    state.classicFilters.marketCap,
+  );
+  setSelectOptions(
+    elements.themeFilter,
+    trackedUniverse.map(stock => stock.theme),
+    "All themes",
+    state.classicFilters.theme,
+  );
 }
 
 function bindEvents() {
@@ -1669,6 +1728,28 @@ function formatRelativeVolumeCell(value) {
 
 function formatScoreCell(value) {
   return value == null ? "--" : String(value);
+}
+
+function getCompactConnectionCopy(message) {
+  const text = String(message || "").trim();
+  if (!text) {
+    return "SignalDeck is ready to connect to market data.";
+  }
+
+  const normalized = text.toLowerCase();
+  if (normalized.includes("current minute") || normalized.includes("api credits") || normalized.includes("limit being")) {
+    return "Free-tier market data is rate-limited right now. Review Settings for the full runtime note.";
+  }
+  if (normalized.includes("current day") || normalized.includes("per day") || normalized.includes("daily")) {
+    return "Daily market-data quota is exhausted. Review Settings for the full runtime note.";
+  }
+  if (normalized.includes("api key") || normalized.includes("incorrect or not specified")) {
+    return "Market-data key needs attention. Open Settings to review the connection details.";
+  }
+  if (normalized.includes("quota") || normalized.includes("billing")) {
+    return "AI or data quota needs attention. Open Settings for the full provider response.";
+  }
+  return "Market data needs attention. Open Settings for the full provider response.";
 }
 
 function getCompactBriefMetric(label, value) {
@@ -2974,32 +3055,32 @@ function renderConnectionState() {
 
   if (state.isRefreshing) {
     elements.feedStatus.textContent = "Refreshing market quotes";
-    elements.connectionState.textContent = "Requesting fresh market data from Twelve Data.";
+    elements.connectionState.textContent = "Refreshing the shared market snapshot.";
   } else if (state.isLoadingHistory) {
     elements.feedStatus.textContent = "Loading chart history";
-    elements.connectionState.textContent = "Pulling historical bars for the selected symbol.";
+    elements.connectionState.textContent = "Loading history for the selected symbol.";
   } else if (state.loadError) {
     elements.feedStatus.textContent = "Market data unavailable";
-    elements.connectionState.textContent = state.loadError;
+    elements.connectionState.textContent = getCompactConnectionCopy(state.loadError);
   } else if (Object.keys(state.quoteMap).length) {
     if (state.marketTransport === "shared" || state.marketTransport === "cached") {
       elements.feedStatus.textContent = "Shared market snapshot connected";
       elements.connectionState.textContent =
-        "This visitor is reusing a shared server-side market snapshot instead of triggering a brand-new upstream request.";
+        "Shared server-side market snapshot is active for this public build.";
     } else if (state.marketTransport === "stale") {
       elements.feedStatus.textContent = "Cached market snapshot connected";
       elements.connectionState.textContent =
-        "SignalDeck is serving the latest safe cached snapshot because the upstream feed is currently constrained.";
+        "Serving the latest safe cached snapshot while the upstream feed is constrained.";
     } else {
       elements.feedStatus.textContent = "Real market data connected";
       elements.connectionState.textContent = state.apiConfig.hasServerKey
-        ? "Server-side API key detected. This build is ready for public deployment."
-        : "Using a browser-stored API key. Fine for local testing; use a server env var for public deploys.";
+        ? "Server-side market data is active for this deployment."
+        : "Browser-stored API key detected for local testing.";
     }
   } else {
     elements.feedStatus.textContent = "Waiting for market data connection";
     elements.connectionState.textContent =
-      "Add a free Twelve Data API key or configure a server key before running the scanner.";
+      "Connect a market-data key in Settings or wait for the shared feed to recover.";
   }
 
   elements.dataSourceNote.textContent =
