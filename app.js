@@ -373,6 +373,7 @@ const elements = {
   resultsTitle: document.getElementById("results-title"),
   resultsMeta: document.getElementById("results-meta"),
   symbolSearch: document.getElementById("symbol-search"),
+  topbarSearch: document.getElementById("topbar-search-input"),
   pulseStrip: document.getElementById("pulse-strip"),
   feedStatus: document.getElementById("feed-status-text"),
   lastUpdated: document.getElementById("last-updated"),
@@ -410,6 +411,7 @@ const elements = {
   accountTrigger: document.getElementById("account-trigger"),
   accountDrawer: document.getElementById("account-drawer"),
   accountAvatar: document.getElementById("account-avatar"),
+  accountDrawerAvatar: document.getElementById("account-drawer-avatar"),
   briefHeadline: document.getElementById("brief-headline"),
   briefWindow: document.getElementById("brief-window"),
   briefBody: document.getElementById("brief-body"),
@@ -572,6 +574,12 @@ function bindEvents() {
   });
   elements.symbolSearch.addEventListener("input", event => {
     state.searchTerm = event.target.value.trim().toLowerCase();
+    elements.topbarSearch.value = event.target.value;
+    render();
+  });
+  elements.topbarSearch.addEventListener("input", event => {
+    state.searchTerm = event.target.value.trim().toLowerCase();
+    elements.symbolSearch.value = event.target.value;
     render();
   });
   elements.momentumFilter.addEventListener("input", event => {
@@ -2167,6 +2175,7 @@ function renderAuthState() {
   elements.accountDrawer.hidden = !state.accountMenuOpen || !state.currentUser;
   elements.accountTrigger.setAttribute("aria-expanded", String(state.accountMenuOpen));
   elements.accountAvatar.textContent = getAccountInitials(state.currentUser);
+  elements.accountDrawerAvatar.textContent = getAccountInitials(state.currentUser);
 
   if (state.currentUser) {
     elements.accountBadge.textContent = getAccountLabel(state.currentUser);
