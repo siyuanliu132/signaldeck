@@ -48,6 +48,7 @@ html {
 }
 
 body {
+  position: relative;
   margin: 0;
   min-height: 100vh;
   background:
@@ -58,15 +59,68 @@ body {
   font-family: "Space Grotesk", sans-serif;
 }
 
+.background-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #061018;
+}
+
+.background-poster,
+.background-video {
+  position: absolute;
+  inset: -8%;
+  width: 116%;
+  height: 116%;
+  object-fit: cover;
+  transform: scale(1.06);
+}
+
+.background-poster {
+  opacity: 0.38;
+  filter: blur(18px) saturate(0.7) brightness(0.48);
+}
+
+.background-video {
+  opacity: 0.34;
+  filter: blur(14px) saturate(0.52) brightness(0.34);
+}
+
+.background-shade,
+.background-glow {
+  position: absolute;
+  inset: 0;
+}
+
+.background-shade {
+  z-index: 1;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(17, 36, 71, 0.34), transparent 26%),
+    radial-gradient(circle at 82% 14%, rgba(166, 108, 35, 0.2), transparent 24%),
+    linear-gradient(180deg, rgba(6, 12, 18, 0.2), rgba(6, 12, 18, 0.78) 52%, rgba(6, 12, 18, 0.94));
+}
+
+.background-glow {
+  z-index: 2;
+  background:
+    radial-gradient(circle at 16% 18%, rgba(88, 124, 255, 0.1), transparent 22%),
+    radial-gradient(circle at 84% 12%, rgba(242, 169, 80, 0.1), transparent 24%);
+  mix-blend-mode: screen;
+  opacity: 0.55;
+}
+
 body::before {
   content: "";
   position: fixed;
   inset: 0;
+  z-index: 3;
   background:
     linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
   background-size: 120px 120px;
-  opacity: 0.45;
+  opacity: 0.25;
   pointer-events: none;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.8), transparent 94%);
 }
@@ -124,6 +178,8 @@ textarea {
 }
 
 .terminal-app {
+  position: relative;
+  z-index: 5;
   min-height: 100vh;
 }
 
@@ -1547,6 +1603,32 @@ select {
 select option {
   background: #101925;
   color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .background-video {
+    display: none;
+  }
+
+  .background-poster {
+    opacity: 0.5;
+    filter: blur(16px) saturate(0.74) brightness(0.5);
+  }
+}
+
+@media (max-width: 959px) {
+  .background-video {
+    display: none;
+  }
+
+  .background-poster {
+    opacity: 0.46;
+    filter: blur(16px) saturate(0.72) brightness(0.46);
+  }
+
+  .background-glow {
+    opacity: 0.38;
+  }
 }
 
 @media (max-width: 1440px) {

@@ -586,6 +586,8 @@ const elements = {
   resultsMeta: document.getElementById("results-meta"),
   symbolSearch: document.getElementById("symbol-search"),
   topbarSearch: document.getElementById("topbar-search-input"),
+  backgroundVideo: document.getElementById("background-video"),
+  backgroundVideoSource: document.getElementById("background-video-source"),
   palettePopover: document.getElementById("palette-popover"),
   paletteResults: document.getElementById("palette-results"),
   paletteMeta: document.getElementById("palette-meta"),
@@ -709,11 +711,38 @@ const elements = {
   inspectorColumn: document.getElementById("inspector-column"),
 };
 
+function initializeBackgroundMedia() {
+  if (!elements.backgroundVideo || !elements.backgroundVideoSource) {
+    return;
+  }
+
+  const allowsMotion = window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
+  const allowsDesktopVideo = window.matchMedia("(min-width: 960px)").matches;
+
+  if (!allowsMotion || !allowsDesktopVideo) {
+    return;
+  }
+
+  const source = elements.backgroundVideoSource.dataset.src;
+  if (!source || elements.backgroundVideoSource.src) {
+    return;
+  }
+
+  elements.backgroundVideoSource.src = source;
+  elements.backgroundVideo.load();
+
+  const playAttempt = elements.backgroundVideo.play();
+  if (playAttempt && typeof playAttempt.catch === "function") {
+    playAttempt.catch(() => {});
+  }
+}
+
 bindEvents();
 bindSupabaseAuthListener();
 initialize();
 
 async function initialize() {
+  initializeBackgroundMedia();
   consumeUrlAuthError();
   elements.apiKeyInput.value = state.apiKey;
   populateClassicFilterOptions();

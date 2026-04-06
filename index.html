@@ -13,6 +13,31 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <div class="background-stage" aria-hidden="true">
+      <img
+        class="background-poster"
+        src="./assets/backgrounds/abstract-market-flow-poster.jpg"
+        alt=""
+        decoding="async"
+      />
+      <video
+        class="background-video"
+        id="background-video"
+        poster="./assets/backgrounds/abstract-market-flow-poster.jpg"
+        muted
+        loop
+        playsinline
+        preload="none"
+      >
+        <source
+          id="background-video-source"
+          data-src="./assets/backgrounds/abstract-market-flow.mp4"
+          type="video/mp4"
+        />
+      </video>
+      <div class="background-shade"></div>
+      <div class="background-glow"></div>
+    </div>
     <div class="terminal-app">
       <header class="topbar">
         <div class="topbar-brand">
