@@ -698,6 +698,7 @@ bindSupabaseAuthListener();
 initialize();
 
 async function initialize() {
+  consumeUrlAuthError();
   elements.apiKeyInput.value = state.apiKey;
   populateClassicFilterOptions();
   populateUniverseControls();
@@ -1691,6 +1692,64 @@ function setAuthMode(mode) {
   renderAuthState();
 }
 
+function getAuthRedirectUrl() {
+  return `${window.location.origin}/`;
+}
+
+function normalizeAuthErrorMessage(message) {
+  const text = String(message || "").trim();
+  const lower = text.toLowerCase();
+  if (!text) {
+    return "";
+  }
+
+  if (
+    lower.includes("redirect") &&
+    (lower.includes("not allowed") || lower.includes("invalid") || lower.includes("mismatch"))
+  ) {
+    return `This deploy URL is not whitelisted for auth yet. Add ${getAuthRedirectUrl()}** in Supabase Authentication > URL Configuration > Redirect URLs.`;
+  }
+
+  if (lower.includes("email not confirmed")) {
+    return "This account exists, but the email address has not been confirmed yet. Check your inbox and open the confirmation link.";
+  }
+
+  if (lower.includes("invalid login credentials")) {
+    return "Email or password was not accepted. If this account was just created, confirm the email first and try again.";
+  }
+
+  if (lower.includes("provider is not enabled")) {
+    return "Google sign-in is not enabled correctly in Supabase yet. Recheck the provider settings and redirect URLs.";
+  }
+
+  return text;
+}
+
+function consumeUrlAuthError() {
+  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+  const combined = [hash, window.location.search.startsWith("?") ? window.location.search.slice(1) : window.location.search]
+    .filter(Boolean)
+    .join("&");
+  if (!combined) {
+    return;
+  }
+
+  const params = new URLSearchParams(combined);
+  const error = params.get("error");
+  const errorDescription = params.get("error_description");
+  if (!error && !errorDescription) {
+    return;
+  }
+
+  state.authMode = "login";
+  state.authModalOpen = true;
+  state.authMessage = normalizeAuthErrorMessage(errorDescription || error);
+
+  if (window.history?.replaceState) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+}
+
 function bindSupabaseAuthListener() {
   supabaseClient.auth.onAuthStateChange(async (_event, session) => {
     state.currentUser = session?.user || null;
@@ -1718,7 +1777,7 @@ async function handleAuthSubmit() {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: getAuthRedirectUrl(),
         },
       });
       if (error) {
@@ -1752,7 +1811,7 @@ async function handleAuthSubmit() {
     syncClassicControls();
     render();
   } catch (error) {
-    state.authMessage = error.message;
+    state.authMessage = normalizeAuthErrorMessage(error.message);
     renderAuthState();
   }
 }
@@ -1764,12 +1823,12 @@ async function handleGoogleAuth() {
   const { error } = await supabaseClient.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${window.location.origin}/`,
+      redirectTo: getAuthRedirectUrl(),
     },
   });
 
   if (error) {
-    state.authMessage = error.message;
+    state.authMessage = normalizeAuthErrorMessage(error.message);
     renderAuthState();
   }
 }
