@@ -3454,17 +3454,17 @@ function renderConnectionState() {
     elements.connectionState.textContent = getCompactConnectionCopy(state.loadError);
   } else if (Object.keys(state.quoteMap).length) {
     if (state.marketTransport === "shared" || state.marketTransport === "cached") {
-      elements.feedStatus.textContent = "Shared market snapshot connected";
+      elements.feedStatus.textContent = "15-minute delayed market feed connected";
       elements.connectionState.textContent =
-        "Shared server-side market snapshot is active for this public build.";
+        "Shared delayed market snapshot is active for this public build.";
     } else if (state.marketTransport === "stale") {
-      elements.feedStatus.textContent = "Cached market snapshot connected";
+      elements.feedStatus.textContent = "Cached delayed market snapshot";
       elements.connectionState.textContent =
         "Serving the latest safe cached snapshot while the upstream feed is constrained.";
     } else {
-      elements.feedStatus.textContent = "Real market data connected";
+      elements.feedStatus.textContent = "15-minute delayed market data connected";
       elements.connectionState.textContent = state.apiConfig.hasServerKey
-        ? "Server-side market data is active for this deployment."
+        ? "Server-side delayed market data is active for this deployment."
         : "Browser-stored API key detected for local testing.";
     }
   } else {
@@ -3475,8 +3475,8 @@ function renderConnectionState() {
 
   elements.dataSourceNote.textContent =
     managedByServer
-      ? "Server-managed market data is active. Public visitors do not need to supply their own key, and server-side caching now reduces duplicate upstream calls."
-      : "Free-tier mode tracks a curated universe and refreshes every four minutes to stay within API-credit limits.";
+      ? "Server-managed delayed market data is active. Public visitors do not need to supply their own key, and server-side caching reduces duplicate upstream calls."
+      : "Free-tier mode uses delayed 15-minute data, a curated live batch, and slower refresh cycles to stay within API-credit limits.";
 
   elements.settingsFeedStatus.textContent = elements.feedStatus.textContent;
   elements.settingsLastUpdated.textContent = elements.lastUpdated.textContent;
@@ -3484,8 +3484,8 @@ function renderConnectionState() {
   elements.settingsRuntimeNote.textContent = state.loadError
     ? state.loadError
     : managedByServer
-      ? "Server-side market data is active for this deployment, with shared caching to reduce duplicate requests."
-      : "Free-tier mode is using a curated universe, shared caching, and slower refresh intervals.";
+      ? "This deployment is using server-side delayed market data with shared caching to reduce duplicate requests."
+      : "Free-tier mode is using delayed 15-minute data, shared caching, and slower refresh intervals.";
 }
 
 function renderPulseStrip(ranked) {

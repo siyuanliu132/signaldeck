@@ -11,16 +11,23 @@ SignalDeck is an AI-guided stock opportunity scanner prototype with a real marke
 - stores a local watchlist in the browser
 - optionally routes AI Mode through a server-side OpenAI parser before falling back to local heuristic rules
 
-## Real data
+## Data strategy
 
-This build is designed to use [Twelve Data](https://twelvedata.com/docs) for free-tier quote snapshots and recent price bars.
+This build is designed to use [Twelve Data](https://twelvedata.com/docs) for free-tier delayed quote snapshots and recent price bars.
 
 - `GET /api/config` reports whether a server-side API key is configured
 - `POST /api/ai/scan-profile` uses OpenAI Responses + Structured Outputs when `OPENAI_API_KEY` is present
 - `GET /api/market/quotes` proxies quote data for the tracked universe
 - `GET /api/market/history` proxies recent time-series bars for the selected symbol
 
-The free-tier sample intentionally tracks a small universe and refreshes once per minute so the demo stays within budget.
+SignalDeck was originally imagined as a faster real-time market scanner. In the current public build, the workflow has been shifted toward delayed `15-minute` data and overnight / swing / multi-day scanning because the free market-data tier cannot support broad high-frequency coverage at demo scale.
+
+The free-tier sample therefore uses:
+
+- delayed `15-minute` bars for history and structure
+- a larger browseable large-cap catalog
+- a smaller live batch for shared quote refreshes
+- slower refresh intervals so the demo stays inside free API limits
 
 ## Run locally
 
