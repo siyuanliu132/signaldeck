@@ -139,6 +139,16 @@
         <main class="workspace">
           <section class="workspace-screen active" id="screen-scanner" data-screen="scanner">
             <section class="pulse-strip" id="pulse-strip"></section>
+            <section class="board-panel context-panel">
+              <div class="panel-header compact-header">
+                <div>
+                  <p class="section-label">Market context</p>
+                  <h3>15-minute regime and sector leadership</h3>
+                </div>
+                <p class="mono" id="market-context-meta">Waiting for context feed</p>
+              </div>
+              <div class="market-context-grid compact-context-grid" id="market-context-grid"></div>
+            </section>
 
           <section class="scan-station">
             <div class="surface-header">
@@ -456,6 +466,17 @@ Find liquid overnight and multi-day setups using 15-minute structure, steady par
                 </div>
                 <p class="muted">Search across the merged S&amp;P 500 and Nasdaq 100 catalog, then drill into symbols on demand.</p>
               </div>
+
+              <section class="board-panel context-panel universe-context-panel">
+                <div class="panel-header compact-header">
+                  <div>
+                    <p class="section-label">Market context</p>
+                    <h3>Broad market, sectors, and volatility proxy</h3>
+                  </div>
+                  <p class="mono" id="universe-context-meta">Waiting for context feed</p>
+                </div>
+                <div class="market-context-grid universe-context-grid" id="universe-context-grid"></div>
+              </section>
 
               <section class="board-panel universe-panel">
                 <div class="panel-header board-header">

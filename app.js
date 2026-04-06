@@ -43,7 +43,19 @@ const CURATED_LIVE_UNIVERSE = [
   { symbol: "GE", name: "GE Aerospace", session: "swing", trend: "Industrial leadership", sector: "Industrials", theme: "Aerospace demand", marketCap: "Mega cap" },
 ];
 
+const MARKET_CONTEXT_UNIVERSE = [
+  { symbol: "SPY", label: "S&P 500", kind: "broad", note: "Broad market risk appetite" },
+  { symbol: "QQQ", label: "Nasdaq 100", kind: "broad", note: "Growth and software leadership" },
+  { symbol: "DIA", label: "Dow proxy", kind: "broad", note: "Industrial and defensive balance" },
+  { symbol: "XLK", label: "Technology", kind: "sector", note: "Large-cap technology leadership" },
+  { symbol: "XLF", label: "Financials", kind: "sector", note: "Rate and bank participation" },
+  { symbol: "XLE", label: "Energy", kind: "sector", note: "Commodity-linked cyclicals" },
+  { symbol: "XLV", label: "Healthcare", kind: "sector", note: "Defensive growth tone" },
+  { symbol: "VXX", label: "Volatility proxy", kind: "volatility", note: "Fear and hedging proxy" },
+];
+
 const LIVE_BATCH_SYMBOLS = CURATED_LIVE_UNIVERSE.map(stock => stock.symbol);
+const CONTEXT_BATCH_SYMBOLS = MARKET_CONTEXT_UNIVERSE.map(item => item.symbol);
 const CATALOG_OVERRIDES = Object.fromEntries(CURATED_LIVE_UNIVERSE.map(stock => [stock.symbol, stock]));
 const MEGA_CAP_SYMBOLS = new Set([
   "AAPL", "ABBV", "ABT", "ADBE", "AMZN", "AVGO", "BAC", "BRK-B", "COST", "CVX", "GOOGL", "GOOG",
@@ -578,6 +590,10 @@ const elements = {
   paletteResults: document.getElementById("palette-results"),
   paletteMeta: document.getElementById("palette-meta"),
   pulseStrip: document.getElementById("pulse-strip"),
+  marketContextMeta: document.getElementById("market-context-meta"),
+  marketContextGrid: document.getElementById("market-context-grid"),
+  universeContextMeta: document.getElementById("universe-context-meta"),
+  universeContextGrid: document.getElementById("universe-context-grid"),
   feedStatus: document.getElementById("feed-status-text"),
   lastUpdated: document.getElementById("last-updated"),
   connectionState: document.getElementById("connection-state"),
@@ -2537,7 +2553,7 @@ async function refreshMarketData(options = {}) {
   renderConnectionState();
 
   try {
-    const symbols = LIVE_BATCH_SYMBOLS.join(",");
+    const symbols = [...new Set([...LIVE_BATCH_SYMBOLS, ...CONTEXT_BATCH_SYMBOLS])].join(",");
     const payload = await fetchJson(`/api/market/quotes?symbols=${encodeURIComponent(symbols)}`);
     state.quoteMap = normalizeQuotes(payload.data);
     state.lastUpdatedAt = payload.fetchedAt || new Date().toISOString();
@@ -2670,6 +2686,12 @@ function getLiveUniverse() {
     .filter(Boolean);
 }
 
+function getMarketContextUniverse() {
+  return MARKET_CONTEXT_UNIVERSE
+    .map(meta => buildMarketContext(meta, state.quoteMap[meta.symbol]))
+    .filter(Boolean);
+}
+
 function buildStock(meta, quote) {
   if (!quote || quote.status === "error") {
     return null;
@@ -2733,6 +2755,30 @@ function buildStock(meta, quote) {
     open: open ?? previousClose ?? price ?? 0,
     previousClose: previousClose ?? price ?? 0,
     headline: buildHeadline(meta, changePct, relativeVolume, closePosition, volatility),
+  };
+}
+
+function buildMarketContext(meta, quote) {
+  if (!quote || quote.status === "error") {
+    return null;
+  }
+
+  const price = numberOrNull(quote.close) ?? numberOrNull(quote.price);
+  const previousClose = numberOrNull(quote.previous_close);
+  const open = numberOrNull(quote.open);
+  const high = numberOrNull(quote.high);
+  const low = numberOrNull(quote.low);
+  const changePct =
+    numberOrNull(quote.percent_change) ??
+    (price && previousClose ? ((price - previousClose) / previousClose) * 100 : 0);
+  const rangePct =
+    open && high && low ? ((high - low) / Math.max(open, 0.01)) * 100 : Math.abs(changePct) * 1.2;
+
+  return {
+    ...meta,
+    price: price ?? null,
+    changePct: round(changePct || 0, 2),
+    rangePct: round(rangePct || 0, 2),
   };
 }
 
@@ -2840,6 +2886,36 @@ function getUniverseResults() {
     .sort((left, right) => left.symbol.localeCompare(right.symbol));
 }
 
+function getMarketContextSummary(items) {
+  const broad = items.filter(item => item.kind === "broad");
+  const sectors = items.filter(item => item.kind === "sector");
+  const vol = items.find(item => item.kind === "volatility");
+  const spy = broad.find(item => item.symbol === "SPY");
+  const qqq = broad.find(item => item.symbol === "QQQ");
+  const leader = [...sectors].sort((left, right) => (right.changePct ?? -999) - (left.changePct ?? -999))[0];
+
+  let tone = "Mixed";
+  let toneClass = "neutral";
+  if ((spy?.changePct ?? 0) >= 0.35 && (qqq?.changePct ?? 0) >= 0.45 && (vol?.changePct ?? 0) <= 0) {
+    tone = "Risk-on";
+    toneClass = "positive";
+  } else if ((spy?.changePct ?? 0) <= -0.35 && (qqq?.changePct ?? 0) <= -0.45 && (vol?.changePct ?? 0) >= 0) {
+    tone = "Risk-off";
+    toneClass = "negative";
+  }
+
+  const note = leader
+    ? `${leader.label} leads at ${formatSigned(leader.changePct)}%, ${vol ? `${vol.symbol} ${vol.changePct >= 0 ? "firm" : "soft"}` : "volatility proxy waiting"}.`
+    : "Context feed is still building.";
+
+  return {
+    tone,
+    toneClass,
+    note,
+    count: items.length,
+  };
+}
+
 async function focusSymbol(symbol, nextScreen = null) {
   if (!symbol) {
     return;
@@ -2894,6 +2970,7 @@ function render() {
   renderFieldLibrary();
   renderSurfaceState();
   renderPulseStrip(ranked);
+  renderMarketContext();
   renderScanDigest(ranked);
   renderFilterChips();
   renderWatchlist();
@@ -3438,8 +3515,48 @@ function renderPulseStrip(ranked) {
           <span>${item.note}</span>
         </article>
       `,
-    )
-    .join("");
+      )
+      .join("");
+}
+
+function renderMarketContext() {
+  const context = getMarketContextUniverse();
+  const summary = getMarketContextSummary(context);
+
+  if (!context.length) {
+    elements.marketContextMeta.textContent = "Waiting for context feed";
+    elements.universeContextMeta.textContent = "Waiting for context feed";
+    elements.marketContextGrid.innerHTML = `<p class="muted context-empty">Market context will appear once the 15-minute quote batch returns broad-market and sector proxies.</p>`;
+    elements.universeContextGrid.innerHTML = `<p class="muted context-empty">Broad-market, sector, and volatility proxies will appear here once the feed returns context quotes.</p>`;
+    return;
+  }
+
+  const leadSector = [...context]
+    .filter(item => item.kind === "sector")
+    .sort((left, right) => (right.changePct ?? -999) - (left.changePct ?? -999))[0];
+  const scannerSymbols = ["SPY", "QQQ", leadSector?.symbol, "VXX"].filter(Boolean);
+  const scannerCards = scannerSymbols
+    .map(symbol => context.find(item => item.symbol === symbol))
+    .filter(Boolean);
+
+  const buildTile = item => `
+    <article class="context-tile">
+      <div class="context-tile-header">
+        <span class="context-tile-label">${item.label}</span>
+        <span class="context-tile-symbol">${item.symbol}</span>
+      </div>
+      <div class="context-tile-foot">
+        <strong class="${item.changePct >= 0 ? "positive" : "negative"}">${formatSigned(item.changePct)}%</strong>
+        <span class="context-tone ${item.changePct >= 0.4 ? "positive" : item.changePct <= -0.4 ? "negative" : "neutral"}">${item.changePct >= 0.4 ? "Leading" : item.changePct <= -0.4 ? "Weak" : "Mixed"}</span>
+      </div>
+      <p>${item.note}</p>
+    </article>
+  `;
+
+  elements.marketContextMeta.textContent = `${summary.tone} · ${summary.note}`;
+  elements.universeContextMeta.textContent = `${summary.count} context symbols · ${summary.tone}`;
+  elements.marketContextGrid.innerHTML = scannerCards.map(buildTile).join("");
+  elements.universeContextGrid.innerHTML = context.map(buildTile).join("");
 }
 
 function renderWatchlist() {
@@ -3749,16 +3866,18 @@ function resetFilterChip(key) {
 
 function renderBrief(ranked) {
   const liveUniverse = getLiveUniverse().map(stock => ({ ...stock, score: state.profile.score(stock) }));
+  const contextSummary = getMarketContextSummary(getMarketContextUniverse());
   const top = ranked[0] || [...liveUniverse].sort(compareRankedStocks)[0];
   elements.briefHeadline.textContent = top
     ? `${state.profile.label} is highlighting ${top.symbol} and other clean setups.`
     : "SignalDeck is waiting for real market data before ranking setups.";
   elements.briefWindow.textContent = state.profile.meta.window;
-  elements.briefBody.textContent = state.profile.meta.executionNote;
+  elements.briefBody.textContent = `${state.profile.meta.executionNote} Current backdrop: ${contextSummary.tone.toLowerCase()} tape. ${contextSummary.note}`;
 
   const metrics = [
     ["Hold bias", state.profile.meta.holdBias],
     ["Risk posture", state.profile.meta.riskBias],
+    ["Market regime", contextSummary.tone],
     ["Monitor", state.profile.meta.monitorFocus],
   ];
 
