@@ -1,0 +1,7 @@
+.env
+storage/
+signaldeck-core/
+signaldeck-data/
+signaldeck-trader-private/
+server.js
+render.yaml

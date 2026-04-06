@@ -60,5 +60,36 @@ For a public URL, deploy the project to a host and set `TWELVE_DATA_API_KEY` as 
 This repo now includes:
 
 - `render.yaml` for a simple Render deployment
+- `vercel.json` for a Vercel front-end deployment that rewrites `/api/*` to the existing Render backend
+- `.vercelignore` so local storage, env files, and private side projects are not uploaded with the Vercel front-end
 - `.env.example` for local key setup
 - `GET /api/health` for a lightweight health check
+
+## Vercel front-end deployment
+
+If you want a faster competition-friendly front-end URL without rewriting the backend, deploy this repo to Vercel and keep the existing Render service running.
+
+Architecture:
+
+- Vercel serves `index.html`, `styles.css`, `app.js`, and `universe-catalog.js`
+- `vercel.json` rewrites `/api/*` to `https://signaldeck.onrender.com/api/*`
+- Render continues to handle market-data proxying, auth storage, and caching
+
+Why this split is useful:
+
+- the front-end gets a clean `vercel.app` URL
+- you do not have to migrate the current Node server into Vercel functions
+- the existing Render deployment keeps the current API behavior intact
+
+Deployment steps:
+
+1. Import the GitHub repo into Vercel.
+2. Keep the project as a static front-end deployment.
+3. Do not add a framework preset unless Vercel suggests one automatically.
+4. After deploy, visit the Vercel URL and confirm `GET /api/config` returns through the rewrite.
+
+Notes:
+
+- the Vercel front-end still depends on the Render backend being awake and healthy
+- if Render cold-starts, the first API-backed screen may still take a moment
+- for hackathon/demo use, this is the lowest-risk way to get a Vercel URL quickly
