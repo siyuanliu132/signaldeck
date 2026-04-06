@@ -293,75 +293,76 @@ const INITIAL_CUSTOM_METRICS = hydrateCustomMetrics(INITIAL_WORKSPACE_STATE.cust
 
 const CLASSIC_PRESETS = {
   "opening-drive": {
-    label: "Opening drive",
+    label: "Power-hour carry",
     filters: {
-      session: "intraday",
-      minMomentum: 74,
-      maxRisk: 46,
-      minRelativeVolume: 1.8,
+      session: "overnight",
+      minMomentum: 64,
+      maxRisk: 34,
+      minRelativeVolume: 1.3,
       sector: "all",
-      marketCap: "all",
-      minQuality: 72,
-      sortBy: "momentum",
-      minPrice: 8,
-      maxPrice: 80,
+      marketCap: "Mega cap",
+      minQuality: 76,
+      sortBy: "score",
+      minPrice: 20,
+      maxPrice: 300,
       theme: "all",
       groupMode: "AND",
       formulaRules: [
-        { id: createRuleId(), field: "gap", operator: ">=", value: "1.5", negate: false },
-        { id: createRuleId(), field: "drivePct", operator: ">=", value: "0.4", negate: false },
-        { id: createRuleId(), field: "turnover", operator: ">=", value: "8000000", negate: false },
+        { id: createRuleId(), field: "carry", operator: ">=", value: "74", negate: false },
+        { id: createRuleId(), field: "closePosition", operator: ">=", value: "0.58", negate: false },
+        { id: createRuleId(), field: "turnover", operator: ">=", value: "10000000", negate: false },
       ],
     },
-    summary: "Opening drive loads intraday names with real participation, a constructive gap, and clear drive from the open.",
+    summary: "Power-hour carry favors liquid names that finish the session with enough quality to hold into the next day.",
   },
   "vwap-reclaim": {
-    label: "VWAP reclaim",
+    label: "Swing continuation",
     filters: {
-      session: "intraday",
+      session: "swing",
+      minMomentum: 68,
+      maxRisk: 38,
+      minRelativeVolume: 1.2,
+      sector: "all",
+      marketCap: "Mega cap",
+      minQuality: 78,
+      sortBy: "quality",
+      minPrice: 20,
+      maxPrice: 400,
+      theme: "all",
+      groupMode: "AND",
+      formulaRules: [
+        { id: createRuleId(), field: "quality", operator: ">=", value: "78", negate: false },
+        { id: createRuleId(), field: "carry", operator: ">=", value: "76", negate: false },
+        { id: createRuleId(), field: "vwapDrift", operator: ">=", value: "-0.2", negate: false },
+      ],
+    },
+    summary: "Swing continuation leans on 15-minute structure and quality so cleaner multi-session trends outrank noisy breakouts.",
+  },
+  "liquidity-sweep": {
+    label: "15m trend build",
+    filters: {
+      session: "swing",
       minMomentum: 66,
       maxRisk: 42,
       minRelativeVolume: 1.4,
       sector: "all",
       marketCap: "all",
-      minQuality: 68,
+      minQuality: 72,
       sortBy: "quality",
-      minPrice: 10,
-      maxPrice: 150,
+      minPrice: 15,
+      maxPrice: 400,
       theme: "all",
       groupMode: "AND",
       formulaRules: [
-        { id: createRuleId(), field: "vwapDrift", operator: ">=", value: "0.15", negate: false },
-        { id: createRuleId(), field: "closePosition", operator: ">=", value: "0.58", negate: false },
-        { id: createRuleId(), field: "relativeVolume", operator: ">=", value: "1.4", negate: false },
+        { id: createRuleId(), field: "turnoverRatio", operator: ">=", value: "1.1", negate: false },
+        { id: createRuleId(), field: "rangePct", operator: "<=", value: "6", negate: false },
+        { id: createRuleId(), field: "quality", operator: ">=", value: "72", negate: false },
       ],
     },
-    summary: "VWAP reclaim uses a quote-structure VWAP proxy for now, surfacing names that are holding back above value after early pressure.",
-  },
-  "liquidity-sweep": {
-    label: "Liquidity sweep",
-    filters: {
-      session: "all",
-      minMomentum: 70,
-      maxRisk: 52,
-      minRelativeVolume: 2.1,
-      sector: "all",
-      marketCap: "all",
-      minQuality: 66,
-      sortBy: "relativeVolume",
-      minPrice: 5,
-      maxPrice: 200,
-      theme: "all",
-      groupMode: "OR",
-      formulaRules: [
-        { id: createRuleId(), field: "turnover", operator: ">=", value: "12000000", negate: false },
-        { id: createRuleId(), field: "rangePct", operator: ">=", value: "2.4", negate: false },
-      ],
-    },
-    summary: "Liquidity sweep biases toward faster tape, bigger turnover, and names that are actually attracting capital.",
+    summary: "15m trend build looks for steady participation and cleaner range behavior that can support a 2 to 5 session hold.",
   },
   "clean-carry": {
-    label: "Clean carry",
+    label: "Defensive carry",
     filters: {
       session: "overnight",
       minMomentum: 60,
@@ -380,7 +381,7 @@ const CLASSIC_PRESETS = {
         { id: createRuleId(), field: "vwapDrift", operator: ">=", value: "-0.3", negate: false },
       ],
     },
-    summary: "Clean carry cuts out fragile tape and prefers higher-quality liquid names that can hold into the next session.",
+    summary: "Defensive carry trims the universe down to steadier liquid names that can survive slower overnight and multi-day holds.",
   },
 };
 
@@ -425,9 +426,9 @@ const SEARCH_ALIASES = {
   "clean carry": "clean-carry",
   干净隔夜: "clean-carry",
 };
-const REFRESH_INTERVAL_MS = 1000 * 60 * 4;
+const REFRESH_INTERVAL_MS = 1000 * 60 * 15;
 const HISTORY_INTERVAL = "15min";
-const HISTORY_POINTS = 24;
+const HISTORY_POINTS = 104;
 const LOCAL_SEARCH_ALIASES = {
   标普500: "sp500",
   "标普 500": "sp500",
@@ -529,22 +530,22 @@ const state = {
   },
   authMessage: "Guest mode stores watchlists only in this browser.",
   profile: createProfile({
-    label: "Balanced momentum",
-    description: "Balanced momentum profile with trap-risk penalty enabled.",
-    title: "Top setups right now",
+    label: "Multi-session quality",
+    description: "15-minute structure profile tuned for overnight and multi-day continuation instead of high-frequency tape.",
+    title: "Top overnight and swing setups",
     filter: () => true,
-    scoreConfig: { momentum: 1, safety: 1, carry: 0.6, sessionBoost: null },
+    scoreConfig: { momentum: 0.92, safety: 1.16, carry: 1.08, sessionBoost: "swing" },
     meta: {
-      window: "Open to midday",
-      holdBias: "Intraday to overnight",
-      riskBias: "Balanced",
-      executionNote: "SignalDeck is looking for strong participation with downside control, not blind gap chasing.",
-      monitorFocus: "Trend quality, participation, and hold behavior",
-      intentChips: ["Balanced horizon", "Flow-aware", "Trap filter on"],
+      window: "15-minute delayed · 1 to 5 sessions",
+      holdBias: "Overnight to multi-day",
+      riskBias: "Conservative",
+      executionNote: "SignalDeck is prioritizing cleaner 15-minute structure, carry strength, and downside control over fast open-drive noise.",
+      monitorFocus: "Carry strength, trend quality, and close behavior",
+      intentChips: ["15-minute mode", "Overnight bias", "Quality first"],
       rationale: [
-        "The default scan balances momentum against downside control instead of rewarding the loudest gap.",
-        "Trend quality and relative volume stay high in the score so thin breakouts lose rank quickly.",
-        "This baseline profile is a clean way to demo live names before specializing the horizon.",
+        "The default scan now starts from a slower 15-minute horizon so the product can stay honest under delayed-data limits.",
+        "Carry strength and trend quality stay ahead of raw opening velocity, so overnight and swing candidates rank more naturally.",
+        "This default profile is designed for 1 to 5 session ideas rather than high-frequency intraday chasing.",
       ],
     },
   }),
@@ -1915,7 +1916,8 @@ function getCompactBriefMetric(label, value) {
   if (label === "Hold bias") {
     return text
       .replace("Same-day follow-through", "Same-day continuation")
-      .replace("Intraday to overnight", "Flexible intraday");
+      .replace("Intraday to overnight", "Flexible intraday")
+      .replace("Overnight to multi-day", "1 to 5 sessions");
   }
 
   if (label === "Monitor") {
@@ -2188,17 +2190,28 @@ function runAiQuery(query, options = {}) {
   const wantsVolume = /volume|expanding volume|rel volume|participation/.test(normalized);
   const wantsTrapProtection = /trap|fade|avoid|not gap-and-fade|controlled downside/.test(normalized);
 
-  let label = "Balanced momentum";
-  let description = "Balanced momentum profile with trap-risk penalty enabled.";
-  let scoreConfig = { momentum: 1, safety: 1, carry: 0.6, sessionBoost: null };
-  let filter = () => true;
-  let title = "Top setups right now";
-  let intentChips = ["Balanced horizon", "Flow-aware", "Trap filter on"];
+  let label = "Multi-session quality";
+  let description = "15-minute structure scan tuned for overnight and multi-day continuation.";
+  let scoreConfig = { momentum: 0.92, safety: 1.16, carry: 1.08, sessionBoost: "swing" };
+  let filter = stock => stock.session !== "intraday" || stock.carry >= 74;
+  let title = "Top overnight and swing setups";
+  let intentChips = ["15-minute mode", "Overnight bias", "Quality first"];
   let classicFilters = getDefaultClassicFilters();
   const rationale = [
-    "SignalDeck starts by reading your requested time horizon so the board favors the right holding period.",
-    "Risk posture is then adjusted to penalize unstable spikes and reward cleaner structure.",
-    "Participation remains a core input so false moves on weak volume lose rank quickly.",
+    "SignalDeck starts from a slower 15-minute horizon so the scanner can stay useful without pretending to be high-frequency tape.",
+    "Risk posture is then adjusted to penalize unstable spikes and reward cleaner carry into the close and next session.",
+    "Participation remains a core input so fragile moves on weak volume still lose rank quickly.",
+  ];
+  classicFilters.session = "overnight";
+  classicFilters.sortBy = "score";
+  classicFilters.maxRisk = 36;
+  classicFilters.minRelativeVolume = 1.2;
+  classicFilters.minQuality = 76;
+  classicFilters.marketCap = "Mega cap";
+  classicFilters.minPrice = 20;
+  classicFilters.formulaRules = [
+    { id: createRuleId(), field: "carry", operator: ">=", value: "74", negate: false },
+    { id: createRuleId(), field: "quality", operator: ">=", value: "76", negate: false },
   ];
 
   if (wantsLowRisk) {
@@ -2305,7 +2318,7 @@ function runAiQuery(query, options = {}) {
         ? "Power hour to next open"
         : title === "Swing candidates"
           ? "3 to 5 sessions"
-          : "Open to midday";
+          : "15-minute delayed · 1 to 5 sessions";
   const holdBias =
     title === "Intraday opportunities"
       ? "Same-day follow-through"
@@ -2313,7 +2326,7 @@ function runAiQuery(query, options = {}) {
         ? "1 to 2 sessions"
         : title === "Swing candidates"
           ? "3 to 5 sessions"
-          : "Intraday to overnight";
+          : "Overnight to multi-day";
   const riskBias =
     scoreConfig.safety >= 1.25 ? "Conservative" : scoreConfig.momentum >= 1.15 ? "Aggressive" : "Balanced";
 
@@ -2672,7 +2685,7 @@ function buildHeadline(meta, changePct, relativeVolume, closePosition, volatilit
     return `${meta.symbol} is holding near the upper end of its session range, which supports continuation.`;
   }
   if (volatility >= 4) {
-    return `${meta.symbol} has a wider intraday range, so the setup needs cleaner confirmation before sizing up.`;
+    return `${meta.symbol} has a wider session range, so the setup needs cleaner confirmation before sizing up.`;
   }
   return `${meta.symbol} is trading in a steadier profile, which can suit lower-risk continuation scans.`;
 }
@@ -3351,10 +3364,10 @@ function renderPulseStrip(ranked) {
     : "--";
 
   const items = [
-    { label: "Scanner profile", value: state.profile.label, note: "Prompt-driven ranking logic is active" },
-    { label: "Live universe", value: String(liveUniverse.length || "--"), note: `${positiveBreadth} names green on session` },
+    { label: "Scanner profile", value: state.profile.label, note: "15-minute delayed ranking logic is active" },
+    { label: "Live core pool", value: String(liveUniverse.length || "--"), note: `${positiveBreadth} names green on session` },
     { label: "Exact matches", value: String(ranked.length), note: ranked.length ? `${ranked[0].symbol} leads the current scan` : "No exact fit yet, widen the screen" },
-    { label: "Strongest tape", value: topLive ? topLive.symbol : "--", note: topLive ? `${bestRelativeVolume} peak participation, risk avg ${averageRisk}` : "Waiting for live quotes" },
+    { label: "Best carry", value: topLive ? topLive.symbol : "--", note: topLive ? `${bestRelativeVolume} peak participation, risk avg ${averageRisk}` : "Waiting for live quotes" },
   ];
 
   elements.pulseStrip.innerHTML = items
@@ -4114,7 +4127,7 @@ function renderExecutionMap(ranked) {
 
   elements.executionHeadline.textContent = `${selected.symbol} fits the ${state.profile.label.toLowerCase()} profile best when structure stays intact.`;
   elements.executionChip.textContent = `${toTitleCase(selected.session)} plan`;
-  elements.executionBody.textContent = `${selected.name} is being surfaced for ${selected.theme.toLowerCase()}, but the better expression is to let price and participation confirm before getting aggressive.`;
+  elements.executionBody.textContent = `${selected.name} is being surfaced for ${selected.theme.toLowerCase()}, but the higher-quality path is to let 15-minute structure and carry behavior confirm before sizing up.`;
 
   const executionRows = [
     ["Best use case", selected.trend],
@@ -4137,9 +4150,9 @@ function renderExecutionMap(ranked) {
     .join("");
 
   const monitorItems = [
-    `Watch whether ${selected.symbol} keeps its intraday structure instead of giving back the move.`,
+    `Watch whether ${selected.symbol} keeps its 15-minute structure instead of giving back the move into the close or next session.`,
     `Relative volume should stay near or above ${Math.max(1.1, selected.relativeVolume - 0.1).toFixed(1)}x to maintain conviction.`,
-    `${selected.risk <= 30 ? "Trap risk is relatively low, so focus on persistence." : "Risk is elevated, so failed continuation should be treated as a warning."}`,
+    `${selected.risk <= 30 ? "Trap risk is relatively low, so focus on persistence into the next 1 to 5 sessions." : "Risk is elevated, so failed continuation should be treated as a warning."}`,
     `The current scanner profile is ${state.profile.meta.riskBias.toLowerCase()}, so position sizing should reflect that posture.`,
   ];
 

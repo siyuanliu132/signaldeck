@@ -76,7 +76,7 @@
           <div class="rail-brand">
             <p class="eyebrow">Operator desk</p>
             <h1>SignalDeck</h1>
-            <p class="muted">A multi-screen scanner for screening, browsing, and monitoring a compact live demo universe.</p>
+            <p class="muted">A 15-minute market intelligence workspace for overnight, swing, and multi-day setup discovery.</p>
           </div>
 
           <nav class="rail-nav" aria-label="Workspace screens">
@@ -103,17 +103,17 @@
               <p class="section-label">Quick prompts</p>
               <span class="mono">AI</span>
             </div>
-            <button class="prompt-pill" data-prompt="Find intraday names with strong momentum and low trap risk.">
-              Intraday strength
-            </button>
-            <button class="prompt-pill" data-prompt="Show lower-risk overnight candidates with healthy liquidity.">
+            <button class="prompt-pill" data-prompt="Find lower-risk overnight candidates that are holding clean 15-minute structure into the close.">
               Overnight carry
             </button>
-            <button class="prompt-pill" data-prompt="Identify blue-chip swing setups with solid continuation.">
+            <button class="prompt-pill" data-prompt="Identify blue-chip swing setups with strong carry, steady participation, and cleaner downside.">
               Blue-chip swing
             </button>
-            <button class="prompt-pill" data-prompt="Scan for names with expanding volume but controlled downside.">
-              Volume expansion
+            <button class="prompt-pill" data-prompt="Scan for 15-minute trend continuation names that could work over the next 3 to 5 sessions.">
+              15m trend build
+            </button>
+            <button class="prompt-pill" data-prompt="Show defensive carry setups using delayed 15-minute data, stable liquidity, and lower risk posture.">
+              Defensive carry
             </button>
           </section>
 
@@ -146,14 +146,14 @@
                 <button class="surface-tab active" data-mode="ai" type="button">AI Mode</button>
                 <button class="surface-tab" data-mode="classic" type="button">Classic Mode</button>
               </div>
-              <p class="muted" id="surface-caption">Translate plain English goals into a market scan profile.</p>
+              <p class="muted" id="surface-caption">Translate plain English goals into a 15-minute market scan profile for overnight and swing ideas.</p>
             </div>
 
             <div class="surface-body">
               <section class="query-panel mode-panel active" data-panel="ai">
                 <label class="section-label" for="ai-query">Prompt the market scanner</label>
                 <textarea id="ai-query" rows="4">
-Find intraday names that can open strong, keep trend quality through the session, and avoid obvious gap-and-fade traps.</textarea
+Find liquid overnight and multi-day setups using 15-minute structure, steady participation, and cleaner downside control.</textarea
                 >
                 <div class="action-row">
                   <button class="primary-button" id="run-ai" type="button">Run AI scan</button>
@@ -185,13 +185,13 @@ Find intraday names that can open strong, keep trend quality through the session
                     </div>
                   </div>
                   <div class="preset-grid">
-                    <button class="preset-chip" type="button" data-preset="opening-drive">Opening drive</button>
-                    <button class="preset-chip" type="button" data-preset="vwap-reclaim">VWAP reclaim</button>
-                    <button class="preset-chip" type="button" data-preset="liquidity-sweep">Liquidity sweep</button>
-                    <button class="preset-chip" type="button" data-preset="clean-carry">Clean carry</button>
+                    <button class="preset-chip" type="button" data-preset="opening-drive">Power-hour carry</button>
+                    <button class="preset-chip" type="button" data-preset="vwap-reclaim">Swing continuation</button>
+                    <button class="preset-chip" type="button" data-preset="liquidity-sweep">15m trend build</button>
+                    <button class="preset-chip" type="button" data-preset="clean-carry">Defensive carry</button>
                   </div>
                   <p class="muted small-note" id="preset-summary">
-                    Templates prefill classic filters and formula rules. VWAP is currently a quote-structure proxy, not full tick-derived VWAP.
+                    Templates prefill slower-horizon filters and formula rules. VWAP is still a quote-structure proxy, and the current product is biased toward overnight and swing workflows.
                   </p>
                 </section>
 
