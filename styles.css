@@ -2225,12 +2225,25 @@ select option {
 
 .context-panel {
   min-width: 0;
+  min-height: 0;
+  padding: 16px 18px;
+}
+
+.context-panel .panel-header {
+  margin-bottom: 10px;
+}
+
+.context-panel .panel-header h3 {
+  margin: 4px 0 0;
+  font-size: 1.02rem;
+  letter-spacing: -0.02em;
 }
 
 .market-context-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 12px;
+  min-height: 0;
 }
 
 .compact-context-grid {
@@ -2315,7 +2328,8 @@ select option {
 }
 
 .context-empty {
-  padding: 8px 2px 2px;
+  padding: 2px 2px 0;
+  min-height: 0;
 }
 
 .pulse-item {
